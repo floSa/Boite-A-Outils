@@ -187,7 +187,7 @@ def test_lister_png_racine(tmp_path):
     noms = [f.name for f in fichiers]
     assert "img1.png" in noms
     assert "img2.PNG" in noms
-    assert "photo.jpg" not in noms
+    assert "photo.jpg" in noms
     assert "texte.txt" not in noms
     assert "cache.png" not in noms
 

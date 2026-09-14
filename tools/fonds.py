@@ -226,13 +226,16 @@ def _phash(chemin: Path):
         return imagehash.phash(im)
 
 
-def lister_png_racine(dossier: str | Path) -> list[Path]:
-    """Liste uniquement les fichiers PNG situés directement à la racine du dossier (sans sous-dossiers)."""
+def lister_png_racine(
+    dossier: str | Path,
+    extensions: tuple[str, ...] = (".png", ".jpg", ".jpeg", ".webp"),
+) -> list[Path]:
+    """Liste uniquement les images situées directement à la racine du dossier (sans sous-dossiers)."""
     base = Path(dossier)
     if not base.is_dir():
         return []
     return sorted(
-        f for f in base.iterdir() if f.is_file() and f.suffix.lower() == ".png"
+        f for f in base.iterdir() if f.is_file() and f.suffix.lower() in extensions
     )
 
 
@@ -558,6 +561,22 @@ def _cible_sans_ecraser(dossier: Path, nom_fichier: str) -> Path:
     return dossier / f"{stem}_{k}{ext}"
 
 
+def _transferer_image_png(src: Path, dst: Path, deplacer: bool = True) -> None:
+    """Déplace ou copie une image vers sa destination en garantissant le format PNG."""
+    from PIL import Image
+
+    if src.suffix.lower() == ".png":
+        if deplacer:
+            shutil.move(str(src), str(dst))
+        else:
+            shutil.copy2(str(src), str(dst))
+    else:
+        with Image.open(src) as im:
+            im.save(dst, "PNG")
+        if deplacer:
+            src.unlink()
+
+
 def appliquer_organisation(
     plan: PlanOrganisation,
     dossier_tries: str | Path,
@@ -610,11 +629,11 @@ def appliquer_organisation(
     for idx, c in enumerate(couples_effectifs):
         num = debut_id + idx
         ident = f"{num:0{largeur_calc}d}"
-        pa_dest = dest / f"{ident}_pa{c.paysage.suffix.lower()}"
-        po_dest = dest / f"{ident}_po{c.portrait.suffix.lower()}"
+        pa_dest = dest / f"{ident}_pa.png"
+        po_dest = dest / f"{ident}_po.png"
 
-        op(str(c.paysage), str(pa_dest))
-        op(str(c.portrait), str(po_dest))
+        _transferer_image_png(c.paysage, pa_dest, deplacer=deplacer)
+        _transferer_image_png(c.portrait, po_dest, deplacer=deplacer)
 
         journal.append({"de": str(pa_dest), "vers": str(c.paysage)})
         journal.append({"de": str(po_dest), "vers": str(c.portrait)})
