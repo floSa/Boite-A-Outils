@@ -33,6 +33,7 @@ sections = {
         page("images_filigrane.py", "Filigrane", "💧"),
     ],
     "🎬 Vidéo": [
+        page("video_telecharger.py", "Télécharger depuis le web", "📥"),
         page("video_merge.py", "Fusionner", "🎬"),
         page("video_decouper.py", "Découper", "✂️"),
         page("video_compresser.py", "Compresser", "🗜️"),

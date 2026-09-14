@@ -43,13 +43,13 @@ uv run streamlit run app.py
 
 ## Outils
 
-47 outils, répartis en 9 catégories (calées sur la navigation de `app.py`).
+48 outils, répartis en 9 catégories (calées sur la navigation de `app.py`).
 
 | Catégorie | Outils |
 |---|---|
 | 🎵 Audio | **Normaliser des FLAC** — corrige le gain audio<br>**Convertir un format** — bascule entre formats audio<br>**Extraire l'audio d'une vidéo** — isole la piste audio<br>**Découper** — extrait un segment audio<br>**Normaliser le volume** — égalise le niveau sonore<br>**Renommer depuis les tags** — noms de fichiers ← métadonnées<br>**Éditer les tags en masse** — modifie ID3/Vorbis en lot |
 | 🖼️ Images | **Redimensionner / compresser** — réduit taille et poids<br>**Convertir de format** — bascule entre formats (dont HEIC)<br>**Trouver les doublons** — détecte images identiques/similaires<br>**Renuméroter** — renomme en séquence numérotée<br>**Organiser les fonds d'écran** — déduplique (vers `Doublons/`), apparie paysage ↔ portrait et numérote en continu<br>**Filigrane** — incruste un marquage texte |
-| 🎬 Vidéo | **Fusionner** — assemble plusieurs vidéos<br>**Découper** — extrait un segment vidéo<br>**Compresser** — réduit le poids vidéo<br>**Convertir** — bascule entre formats vidéo<br>**Extraire des images** — capture des images fixes<br>**Créer un GIF** — convertit un extrait en GIF |
+| 🎬 Vidéo | **Télécharger depuis le web** — récupère des vidéos en ligne (YouTube, Facebook, Dailymotion, Instagram...)<br>**Fusionner** — assemble plusieurs vidéos<br>**Découper** — extrait un segment vidéo<br>**Compresser** — réduit le poids vidéo<br>**Convertir** — bascule entre formats vidéo<br>**Extraire des images** — capture des images fixes<br>**Créer un GIF** — convertit un extrait en GIF |
 | 📄 PDF | **Extraire des pages** — isole certaines pages<br>**Fusionner** — assemble plusieurs PDF<br>**Supprimer / pivoter des pages** — édite la structure du PDF<br>**Images ↔ PDF** — convertit dans les deux sens<br>**Compresser** — réduit le poids du PDF<br>**Protéger / déprotéger** — gère le mot de passe<br>**Extraire le texte** — récupère le texte du PDF<br>**Filigrane** — incruste un marquage texte |
 | 📁 Fichiers | **Nettoyer les noms** — retire les caractères parasites<br>**Renommer en masse** — motif de renommage global<br>**Renommer depuis un CSV** — table ancien/nouveau nom<br>**Fichiers en double** — détecte les doublons par contenu<br>**Ranger automatiquement** — trie dans des sous-dossiers<br>**Statistiques** — compte et pèse un dossier<br>**Comparer deux dossiers** — diff de contenu<br>**Arborescence → Excel** — exporte la structure des dossiers<br>**HTML → Markdown** — convertit des captures web (SingleFile) |
 | 🔤 Données | **Convertir un tableau** — CSV ↔ Excel ↔ JSON<br>**Nettoyer des lignes** — filtre et déduplique des lignes |
@@ -106,6 +106,7 @@ outils_maison/
 │   ├── images.py       #   redimensionner, convertir, dédupliquer, renuméroter
 │   ├── fonds.py        #   organisation des fonds d'écran (SIFT, RANSAC, doublons, numérotation)
 │   ├── video.py        #   fusionner, découper, compresser
+│   ├── video_dl.py     #   téléchargement de vidéos web (YouTube, Facebook, etc. via yt-dlp)
 │   ├── pdf.py          #   extraire, fusionner, pages, images ↔ PDF
 │   ├── watermark.py    #   filigrane texte en mosaïque (images + PDF)
 │   ├── files.py        #   noms de fichiers, doublons, arborescence (+ annulation)
@@ -139,6 +140,7 @@ Licences usuelles des briques utilisées — **à vérifier selon la version ins
 | pypdf | Manipulation PDF | BSD-3-Clause |
 | PyMuPDF | Rendu / extraction PDF | AGPL-3.0 (ou licence commerciale) |
 | moviepy | Traitement vidéo | MIT |
+| yt-dlp | Téléchargement vidéo web | Unlicense |
 | imageio-ffmpeg | Binaire ffmpeg embarqué (transitif) | BSD-2-Clause (ffmpeg : LGPL/GPL) |
 | mutagen | Tags audio | GPL-2.0-or-later |
 | Pillow | Images | MIT-CMU (HPND) |

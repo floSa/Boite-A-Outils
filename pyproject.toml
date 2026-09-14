@@ -44,6 +44,7 @@ dependencies = [
     "readability-lxml>=0.8",
     "markdownify>=0.13",
     "pyyaml>=6.0.3",
+    "yt-dlp>=2026.8.19",
 ]
 
 [project.optional-dependencies]
