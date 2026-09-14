@@ -11,9 +11,9 @@ collection d'utilitaires personnels pour manipuler fichiers, médias et catalogu
 1. **Traiter des médias en lot** (audio, images, vidéo, PDF) sans ligne de commande.
 2. **Ranger et assainir des dossiers** (noms de fichiers, doublons, rangement,
    statistiques, comparaison, arborescence → Excel), avec prévisualisation et annulation.
-3. **Gérer trois cas « catalogue » spécifiques** : tri de cotes de bibliothèque,
-   vérification de disponibilité et récolte de CD par artiste au catalogue de la BM
-   de Lyon.
+3. **Gérer trois cas « catalogue » spécifiques** : tri et épuration stricte de cotes de
+   bibliothèque (suppression des mentions `(En rayon)`, statuts et dates), vérification de
+   disponibilité et récolte de CD par artiste au catalogue de la BM de Lyon.
 4. **Lire un texte à voix haute** en local (synthèse vocale open-source, voix et
    vitesse réglables), sans service tiers ni PyTorch.
 5. **Traduire un texte** hors-ligne (anglais → français et ~200 langues), sans
