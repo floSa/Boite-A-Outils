@@ -58,6 +58,11 @@ with st.expander("⚙️ Paramètres avancés"):
         4,
         help="Différence maximale d'empreinte pour considérer deux images comme identiques.",
     )
+    supprimer_doublons = st.checkbox(
+        "Supprimer définitivement les doublons au lieu de les déplacer vers Doublons/",
+        value=False,
+        key="fonds_supprimer_doublons",
+    )
 
 base_src = Path(source)
 base_dst = Path(dossier_tries)
@@ -193,6 +198,7 @@ if st.button("📦 Appliquer le rangement", type="primary"):
             plan,
             base_dst,
             deplacer=deplacer,
+            supprimer_doublons=supprimer_doublons,
             couples_selectionnes=choisis,
             log=lambda m: st.write(m),
         )

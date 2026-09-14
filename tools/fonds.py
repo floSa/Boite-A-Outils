@@ -563,6 +563,7 @@ def appliquer_organisation(
     dossier_tries: str | Path,
     *,
     deplacer: bool = True,
+    supprimer_doublons: bool = False,
     couples_selectionnes: list[Couple] | None = None,
     largeur: int = 3,
     log: Callable[[str], None] | None = None,
@@ -570,7 +571,7 @@ def appliquer_organisation(
     """Applique le plan de rangement :
 
     - Couples validés -> NNN_pa.png / NNN_po.png dans dossier_tries/
-    - Doublons -> dossier_tries/Doublons/
+    - Doublons -> supprimés si supprimer_doublons=True, sinon déplacés dans dossier_tries/Doublons/
     - Orphelins (+ couples non retenus) -> dossier_tries/A_verifier/
     - Consigne un journal d'annulation dans .organisation_undo.json
     - Met à jour le cache de signatures
@@ -579,7 +580,8 @@ def appliquer_organisation(
     dest.mkdir(parents=True, exist_ok=True)
     d_doublons = dest / "Doublons"
     d_verif = dest / "A_verifier"
-    d_doublons.mkdir(parents=True, exist_ok=True)
+    if not supprimer_doublons:
+        d_doublons.mkdir(parents=True, exist_ok=True)
     d_verif.mkdir(parents=True, exist_ok=True)
 
     def _log(m: str) -> None:
@@ -622,10 +624,14 @@ def appliquer_organisation(
     for f, _ in plan.doublons:
         if not f.exists():
             continue
-        cible = _cible_sans_ecraser(d_doublons, f.name)
-        op(str(f), str(cible))
-        journal.append({"de": str(cible), "vers": str(f)})
-        faits_doublons.append(cible)
+        if supprimer_doublons:
+            f.unlink()
+            faits_doublons.append(f)
+        else:
+            cible = _cible_sans_ecraser(d_doublons, f.name)
+            op(str(f), str(cible))
+            journal.append({"de": str(cible), "vers": str(f)})
+            faits_doublons.append(cible)
 
     faits_orphelins: list[Path] = []
     for f in tous_orphelins:
