@@ -55,7 +55,7 @@ uv run streamlit run app.py
 | 🔤 Données | **Convertir un tableau** — CSV ↔ Excel ↔ JSON<br>**Nettoyer des lignes** — filtre et déduplique des lignes |
 | 🗣️ Voix & langues | **Lire un texte à voix haute** — synthèse vocale locale (Kokoro)<br>**Traduire un texte** — hors-ligne, ~200 langues (NLLB-200)<br>**Transcrire un audio / une vidéo** — texte + sous-titres (Whisper) |
 | 🎼 Bibliothèque perso | **Catalogue de la bibliothèque** — scanne un NAS en CSV/Excel<br>**Uniformiser les noms** — nettoie les noms dossiers/fichiers<br>**Regrouper les singles** — isole les albums à un seul titre |
-| 📚 Bibliothèque municipale | **Trier des cotes** — classe par cote (Dewey ou archive)<br>**Vérifier la disponibilité BM Lyon** — statut actuel au catalogue<br>**Récolter les CD d'artistes** — liste tous les CD trouvés |
+| 📚 Bibliothèque municipale | **Trier des cotes** — épuration des statuts parasites ((En rayon), dates de prêt) et classement par cote (Dewey ou archive)<br>**Vérifier la disponibilité BM Lyon** — statut actuel au catalogue<br>**Récolter les CD d'artistes** — liste tous les CD trouvés |
 
 > Les outils audio/vidéo utilisent le **ffmpeg embarqué** par `imageio-ffmpeg` (aucune
 > installation système requise).

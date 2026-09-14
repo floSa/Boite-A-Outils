@@ -17,6 +17,66 @@ class Entree:
     brut: str
 
 
+# Statuts fréquents de disponibilité en bibliothèque à éliminer de la cote pure
+_STATUT_MOTS = (
+    "prêt",
+    "pret",
+    "dispo",
+    "rayon",
+    "retour",
+    "réserv",
+    "reserv",
+    "magasin",
+    "voir",
+    "consultation",
+    "perdu",
+    "exclu",
+)
+
+_STATUT_PARENTHESES = re.compile(
+    r"\s*\((?:En rayon|Prêt[ée]?|Pret[ée]?|Disponible|En réserve|En reserve|Consultation|Exclu|Non prêtable|Perdu)[^)]*\)",
+    re.IGNORECASE,
+)
+
+_STATUT_FIN = re.compile(
+    r"\s*-\s*(?:Prêt[ée]?|Pret[ée]?|Disponible|En rayon|Voir dispo).*$",
+    re.IGNORECASE,
+)
+
+
+def nettoyer_cote(cote_brute: str) -> str:
+    """Nettoie une cote de bibliothèque en retirant les statuts de disponibilité et mentions parasites.
+
+    Exemples :
+        '780.2 KNI (En rayon)' -> '780.2 KNI'
+        '782.42-AIR - Prêté jusqu'au 12/03/2026' -> '782.42-AIR'
+        '782.ARC 61 (Prêté)' -> '782.ARC 61'
+        'D 59179 (En réserve)' -> 'D 59179'
+        'LA002499 (Consultation sur place)' -> 'LA002499'
+        '780.2 KNI - Disponible' -> '780.2 KNI'
+    """
+    if not cote_brute:
+        return ""
+    cote = str(cote_brute).strip()
+
+    # 1. Retrait des parenthèses de statut
+    cote = _STATUT_PARENTHESES.sub("", cote)
+
+    # 2. Découpage sur " - " si la seconde partie est un statut de prêt
+    if " - " in cote:
+        parties = [p.strip() for p in cote.split(" - ")]
+        if len(parties) >= 2 and any(
+            parties[1].lower().startswith(m) for m in _STATUT_MOTS
+        ):
+            cote = parties[0].strip()
+
+    # 3. Retrait des mentions textuelles de fin orphelines
+    cote = _STATUT_FIN.sub("", cote)
+
+    # Normalisation des espaces internes
+    return re.sub(r"\s+", " ", cote).strip()
+
+
 # Une cote commence par un chiffre (Dewey, ex. "786.1 PIN") OU par un court
 # préfixe de lettres (1 à 6, archives, ex. "D 500", "LA002499") immédiatement
 # suivi d'un chiffre — pas un titre d'album quelconque.
@@ -24,7 +84,8 @@ _COTE_LETTRES_CHIFFRES = re.compile(r"^[A-Za-zÀ-ÿ]{1,6}\.?\s*\d")
 
 
 def _ressemble_a_une_cote(segment: str) -> bool:
-    return bool(re.match(r"\d", segment) or _COTE_LETTRES_CHIFFRES.match(segment))
+    propre = nettoyer_cote(segment)
+    return bool(re.match(r"\d", propre) or _COTE_LETTRES_CHIFFRES.match(propre))
 
 
 def parser_lignes(texte: str) -> list[Entree]:
@@ -32,7 +93,9 @@ def parser_lignes(texte: str) -> list[Entree]:
 
     La cote est le dernier segment s'il ressemble à une cote (commence par un
     chiffre, ex. ``786.1 PIN``, ou par un court préfixe de lettres suivi de
-    chiffres, ex. ``D 500``). Sinon l'entrée est conservée sans cote (triée en fin).
+    chiffres, ex. ``D 500``). Les mentions de statut de prêt (ex. ``(En rayon)``,
+    ``- Prêté``) sont automatiquement nettoyées pour isoler la cote pure.
+    Sinon l'entrée est conservée sans cote (triée en fin).
     """
     entrees: list[Entree] = []
     for ligne in texte.splitlines():
@@ -42,13 +105,23 @@ def parser_lignes(texte: str) -> list[Entree]:
         parts = [p.strip() for p in ligne.split(" - ")]
         if len(parts) >= 2 and _ressemble_a_une_cote(parts[-1]):
             artiste = parts[0]
-            cote = parts[-1]
+            cote = nettoyer_cote(parts[-1])
             album = " - ".join(parts[1:-1])
+        elif (
+            len(parts) >= 3
+            and _ressemble_a_une_cote(parts[-2])
+            and any(parts[-1].lower().startswith(m) for m in _STATUT_MOTS)
+        ):
+            # Cas d'un statut séparé par un " - " supplémentaire : Artiste - Album - Cote - Statut
+            artiste = parts[0]
+            cote = nettoyer_cote(parts[-2])
+            album = " - ".join(parts[1:-2])
         else:
             artiste = parts[0]
             album = " - ".join(parts[1:])
             cote = ""
-        entrees.append(Entree(artiste=artiste, album=album, cote=cote, brut=ligne))
+        brut = " - ".join(p for p in (artiste, album, cote) if p)
+        entrees.append(Entree(artiste=artiste, album=album, cote=cote, brut=brut))
     return entrees
 
 
@@ -76,13 +149,16 @@ def parser_texte(texte: str) -> list[Entree]:
             parts = [p.strip() for p in brut.split(",")]
             if len(parts) >= 2 and _ressemble_a_une_cote(parts[-1]):
                 artiste = parts[0]
-                cote = parts[-1]
+                cote = nettoyer_cote(parts[-1])
                 album = ", ".join(parts[1:-1])
             else:
                 artiste = parts[0]
                 album = ", ".join(parts[1:])
                 cote = ""
-            entrees.append(Entree(artiste=artiste, album=album, cote=cote, brut=brut))
+            brut_propre = " - ".join(p for p in (artiste, album, cote) if p)
+            entrees.append(
+                Entree(artiste=artiste, album=album, cote=cote, brut=brut_propre)
+            )
             continue
         entrees.append(Entree(artiste=brut, album="", cote="", brut=brut))
     return entrees
@@ -97,9 +173,7 @@ def parser_csv(texte: str) -> list[Entree]:
     départ).
     """
     lecteur = csv.DictReader(io.StringIO(texte))
-    entetes = {
-        (nom or "").strip().lower(): nom for nom in (lecteur.fieldnames or [])
-    }
+    entetes = {(nom or "").strip().lower(): nom for nom in (lecteur.fieldnames or [])}
     col_artiste = entetes.get("artiste")
     col_album = entetes.get("album")
     col_cote = entetes.get("cote")
@@ -113,7 +187,7 @@ def parser_csv(texte: str) -> list[Entree]:
     for ligne in lecteur:
         artiste = (ligne.get(col_artiste) or "").strip()
         album = (ligne.get(col_album) or "").strip()
-        cote = (ligne.get(col_cote) or "").strip() if col_cote else ""
+        cote = nettoyer_cote(ligne.get(col_cote) or "") if col_cote else ""
         if not artiste and not album:
             continue
         brut = " - ".join(p for p in (artiste, album, cote) if p)
@@ -150,7 +224,7 @@ def _cle_cote(e: Entree) -> tuple[int, str, float, str]:
        groupée par préfixe de lettres, puis triée numériquement dans ce préfixe.
     2. Cote sans aucun chiffre, ou absente : en fin de liste, alphabétique.
     """
-    cote = e.cote
+    cote = nettoyer_cote(e.cote)
     if not cote:
         return (2, "", 0.0, "")
 

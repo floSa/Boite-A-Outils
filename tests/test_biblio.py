@@ -115,6 +115,7 @@ def test_tri_cote_prefixes_differents_groupes_separement():
 
 # --- parser_texte (dash OU virgule, détecté ligne par ligne) --------------------
 
+
 def test_parser_texte_tirets():
     [e] = biblio.parser_texte("Cliff Martinez - The Knick - 786.1 KNI 3")
     assert e.artiste == "Cliff Martinez"
@@ -154,3 +155,58 @@ def test_parser_texte_virgule_sans_cote():
     assert e.artiste == "Fakear"
     assert e.album == "Sauvage"
     assert e.cote == ""
+
+
+# --- Tests spécifiques d'épuration stricte des cotes BM Lyon ---
+
+
+@pytest.mark.parametrize(
+    "brute, attendue",
+    [
+        ("780.2 KNI (En rayon)", "780.2 KNI"),
+        ("782.42-AIR - Prêté jusqu'au 12/03/2026", "782.42-AIR"),
+        ("782.ARC 61 (Prêté)", "782.ARC 61"),
+        ("D 59179 (En réserve)", "D 59179"),
+        ("LA002499 (Consultation sur place)", "LA002499"),
+        ("780.2 KNI - Disponible", "780.2 KNI"),
+        ("786.1 PIN", "786.1 PIN"),
+        ("782.42-AIR", "782.42-AIR"),
+        ("", ""),
+    ],
+)
+def test_nettoyer_cote(brute, attendue):
+    assert biblio.nettoyer_cote(brute) == attendue
+
+
+def test_parser_lignes_avec_statut_parentheses():
+    txt = "Cliff Martinez - The Knick - 786.1 KNI 3 (En rayon)"
+    [e] = biblio.parser_lignes(txt)
+    assert e.artiste == "Cliff Martinez"
+    assert e.album == "The Knick"
+    assert e.cote == "786.1 KNI 3"
+    assert e.brut == "Cliff Martinez - The Knick - 786.1 KNI 3"
+
+
+def test_parser_lignes_avec_statut_tiret_supplementaire():
+    txt = "Air - Moon Safari - 782.42-AIR - Prêté jusqu'au 15/04/2026"
+    [e] = biblio.parser_lignes(txt)
+    assert e.artiste == "Air"
+    assert e.album == "Moon Safari"
+    assert e.cote == "782.42-AIR"
+    assert e.brut == "Air - Moon Safari - 782.42-AIR"
+
+
+def test_tri_cotes_avec_statuts_parasites():
+    txt = (
+        "A - Album 1 - 786.1 KNI 3 (En rayon)\n"
+        "B - Album 2 - 782.42-AIR - Prêté\n"
+        "C - Album 3 - D 59179 (En réserve)\n"
+        "D - Album 4 - D 9179"
+    )
+    tries = biblio.trier_par_cote(biblio.parser_lignes(txt))
+    assert [e.cote for e in tries] == [
+        "782.42-AIR",
+        "786.1 KNI 3",
+        "D 9179",
+        "D 59179",
+    ]

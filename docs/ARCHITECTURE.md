@@ -39,7 +39,7 @@ chacun leur modèle une seule fois (GitHub / HuggingFace), puis fonctionnent hor
 | [`files.py`](../tools/files.py) | Noms (slugify), doublons (SHA-1), arborescence→Excel, rangement, stats, comparaison, renommage CSV | `pandas`, `openpyxl` |
 | [`data.py`](../tools/data.py) | Conversions CSV / Excel / JSON, nettoyage de lignes | `pandas`, `openpyxl` |
 | [`html_md.py`](../tools/html_md.py) | Captures HTML (SingleFile) → Markdown, fichier ou dossier récursif, images en `_assets/` ; moteur `html_to_md` copié dans le sous-paquet | `beautifulsoup4`, `lxml`, `readability-lxml`, `markdownify` |
-| [`biblio.py`](../tools/biblio.py) | Tri de cotes de bibliothèque | `<à confirmer>` |
+| [`biblio.py`](../tools/biblio.py) | Épuration stricte des statuts parasites et tri naturel de cotes de bibliothèque (Dewey, archives, alphabétique) | `stdlib` (`csv`, `io`, `re`, `dataclasses`, `pathlib`) |
 | [`bm_lyon.py`](../tools/bm_lyon.py) | Vérification de disponibilité et récolte de CD par artiste au catalogue BM Lyon (scraping) | `playwright`, `difflib` |
 | [`tts.py`](../tools/tts.py) | Synthèse vocale locale (voix, vitesse, CPU/GPU), téléchargement du modèle | `kokoro-onnx`, `onnxruntime`, `numpy` |
 | [`traduction.py`](../tools/traduction.py) | Traduction hors-ligne (200 langues, CPU/GPU), téléchargement du modèle | `ctranslate2`, `transformers` (tokenizer), `sentencepiece` |
