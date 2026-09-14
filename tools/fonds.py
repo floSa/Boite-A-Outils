@@ -27,8 +27,8 @@ MAX_DIM = 900
 NFEATURES = 1500
 RATIO_LOWE = 0.75
 RANSAC_REPROJ = 5.0
-SEUIL_INLIERS = 30      # plancher : en dessous, on n'apparie pas
-SEUIL_CERTAIN = 60      # au-dessus (ou forte marge) : couple « sûr »
+SEUIL_INLIERS = 30  # plancher : en dessous, on n'apparie pas
+SEUIL_CERTAIN = 60  # au-dessus (ou forte marge) : couple « sûr »
 
 
 def orientation(taille: tuple[int, int]) -> str:
@@ -94,8 +94,8 @@ def compter_inliers(desc_a, desc_b) -> int:
 class Couple:
     paysage: Path
     portrait: Path
-    score: int          # inliers du couple retenu
-    second: int         # meilleur score concurrent (marge de certitude)
+    score: int  # inliers du couple retenu
+    second: int  # meilleur score concurrent (marge de certitude)
 
     @property
     def certain(self) -> bool:
@@ -112,8 +112,7 @@ class Resultat:
 
 def lister_images(dossier: Path) -> list[Path]:
     return sorted(
-        f for f in dossier.iterdir()
-        if f.is_file() and f.suffix.lower() in EXT_IMAGES
+        f for f in dossier.iterdir() if f.is_file() and f.suffix.lower() in EXT_IMAGES
     )
 
 
@@ -187,7 +186,9 @@ def apparier(
             + [0]
         )
         couples.append(
-            Couple(paysage=paysages[j], portrait=portraits[i], score=score, second=second)
+            Couple(
+                paysage=paysages[j], portrait=portraits[i], score=score, second=second
+            )
         )
         libres_po.discard(i)
         libres_pa.discard(j)
@@ -199,14 +200,122 @@ def apparier(
     )
 
 
-# --- Déduplication contre un dossier déjà trié -------------------------------
+# --- Déduplication et signatures --------------------------------------------
+
+FICHIER_SIGNATURES = ".signatures_fonds.json"
+FICHIER_UNDO = ".organisation_undo.json"
+
+
+def _sha256(chemin: Path) -> str:
+    """Calcul du SHA-256 par blocs de 64 Ko."""
+    import hashlib
+
+    h = hashlib.sha256()
+    with open(chemin, "rb") as f:
+        while chunk := f.read(65536):
+            h.update(chunk)
+    return h.hexdigest()
+
 
 def _phash(chemin: Path):
+    """Calcul de l'empreinte perceptuelle pHash."""
     import imagehash
     from PIL import Image
 
     with Image.open(chemin) as im:
         return imagehash.phash(im)
+
+
+def lister_png_racine(dossier: str | Path) -> list[Path]:
+    """Liste uniquement les fichiers PNG situés directement à la racine du dossier (sans sous-dossiers)."""
+    base = Path(dossier)
+    if not base.is_dir():
+        return []
+    return sorted(
+        f for f in base.iterdir() if f.is_file() and f.suffix.lower() == ".png"
+    )
+
+
+def charger_signatures_destination(
+    dossier_tries: str | Path,
+    *,
+    inclure_doublons: bool = True,
+    log: Callable[[str], None] | None = None,
+) -> tuple[dict[str, tuple[str, object]], Path]:
+    """Charge ou calcule les signatures (SHA-256 et pHash) des fichiers déjà triés.
+
+    Retourne (signatures, chemin_cache) où signatures est un dictionnaire :
+    rel_path -> (sha256, phash_obj)
+    """
+    import imagehash
+
+    base = Path(dossier_tries)
+    base.mkdir(parents=True, exist_ok=True)
+    cache_path = base / FICHIER_SIGNATURES
+
+    cache: dict[str, dict] = {}
+    if cache_path.is_file():
+        try:
+            cache = json.loads(cache_path.read_text(encoding="utf-8"))
+        except Exception:
+            cache = {}
+
+    fichiers_cibles: list[Path] = []
+    for pattern in ("*_pa.*", "*_po.*"):
+        fichiers_cibles.extend(base.glob(pattern))
+
+    dossier_doublons = base / "Doublons"
+    if inclure_doublons and dossier_doublons.is_dir():
+        fichiers_cibles.extend(f for f in dossier_doublons.iterdir() if f.is_file())
+
+    fichiers_cibles = sorted(set(fichiers_cibles))
+    if log and fichiers_cibles:
+        log(f"Indexation de {len(fichiers_cibles)} fichier(s) dans la destination…")
+
+    signatures: dict[str, tuple[str, object]] = {}
+    mis_a_jour = False
+
+    for f in fichiers_cibles:
+        rel = str(f.relative_to(base)).replace("\\", "/")
+        try:
+            stat = f.stat()
+            mtime = stat.st_mtime
+            size = stat.st_size
+        except OSError:
+            continue
+
+        cached = cache.get(rel)
+        if (
+            cached
+            and cached.get("mtime") == mtime
+            and cached.get("size") == size
+            and "sha256" in cached
+            and "phash" in cached
+        ):
+            sha = cached["sha256"]
+            ph = imagehash.hex_to_hash(cached["phash"])
+        else:
+            try:
+                sha = _sha256(f)
+                ph_obj = _phash(f)
+                ph = ph_obj
+                cache[rel] = {
+                    "sha256": sha,
+                    "phash": str(ph_obj),
+                    "mtime": mtime,
+                    "size": size,
+                }
+                mis_a_jour = True
+            except Exception:
+                continue
+        signatures[rel] = (sha, ph)
+
+    if mis_a_jour:
+        cache_path.write_text(
+            json.dumps(cache, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+
+    return signatures, cache_path
 
 
 def empreintes_paysages(dossier_tries: str | Path) -> list[tuple[str, object]]:
@@ -236,22 +345,356 @@ def couple_deja_trie(
     return None
 
 
-# --- Rangement dans le dossier trié ------------------------------------------
+# --- Rangement et organisation complète -------------------------------------
+
 
 def prochain_id(dossier_tries: str | Path) -> int:
     """Prochain identifiant libre (max des ``NNN_pa`` existants + 1)."""
     base = Path(dossier_tries)
-    ids = [int(f.stem[:3]) for f in base.glob("*_pa.*") if f.stem[:3].isdigit()]
+    ids = []
+    for f in base.glob("*_pa.*"):
+        prefix = f.stem.split("_")[0]
+        if prefix.isdigit():
+            ids.append(int(prefix))
     return (max(ids) + 1) if ids else 1
+
+
+@dataclass
+class PlanOrganisation:
+    couples: list[Couple]
+    doublons: list[tuple[Path, str]]  # (fichier_source, motif_doublon)
+    orphelins: list[Path]  # images sans correspondance
+    paysages_candidats: list[Path]
+    portraits_candidats: list[Path]
+    nb_source_total: int
+
+
+def preparer_organisation(
+    dossier_source: str | Path,
+    dossier_tries: str | Path,
+    *,
+    seuil_inliers: int = SEUIL_INLIERS,
+    seuil_phash: int = 4,
+    log: Callable[[str], None] | None = None,
+) -> PlanOrganisation:
+    """Analyse un dossier source PNG (racine seule) et prépare le plan de rangement.
+
+    1. Détecte les doublons contre le dossier trié et internes à la source.
+    2. Sépare les images saines en paysages et portraits.
+    3. Apparie par géométrie SIFT/RANSAC.
+    4. Les images sans partenaire deviennent orphelines.
+    """
+    from PIL import Image
+
+    src_base = Path(dossier_source)
+    dst_base = Path(dossier_tries)
+    if not src_base.is_dir():
+        raise NotADirectoryError(f"Dossier source introuvable : {src_base}")
+    if src_base.resolve() == dst_base.resolve():
+        raise ValueError(
+            "Le dossier source et le dossier de sortie doivent être distincts."
+        )
+
+    def _log(m: str) -> None:
+        if log:
+            log(m)
+
+    fichiers_source = lister_png_racine(src_base)
+    _log(f"{len(fichiers_source)} fichier(s) PNG trouvé(s) dans le dossier source.")
+    if not fichiers_source:
+        return PlanOrganisation(
+            couples=[],
+            doublons=[],
+            orphelins=[],
+            paysages_candidats=[],
+            portraits_candidats=[],
+            nb_source_total=0,
+        )
+
+    sigs_dst, _ = charger_signatures_destination(
+        dst_base, inclure_doublons=True, log=_log
+    )
+    dst_sha_map = {sha: rel for rel, (sha, _) in sigs_dst.items()}
+    dst_phash_list = [(rel, ph) for rel, (_, ph) in sigs_dst.items()]
+
+    doublons: list[tuple[Path, str]] = []
+    candidats: list[tuple[Path, str]] = []  # (fichier, orientation)
+    orphelins: list[Path] = []
+
+    src_sha_map: dict[str, str] = {}
+    src_phash_list: list[tuple[str, object]] = []
+
+    _log("Analyse des empreintes et détection des doublons…")
+    for idx, f in enumerate(fichiers_source):
+        try:
+            with Image.open(f) as im:
+                ori = orientation(im.size)
+            sha = _sha256(f)
+            ph = _phash(f)
+        except Exception as err:
+            _log(f"Fichier illisible {f.name} : {err}")
+            orphelins.append(f)
+            continue
+
+        # 1.1 Doublon exact destination
+        if sha in dst_sha_map:
+            doublons.append((f, f"Copie exacte de {dst_sha_map[sha]}"))
+            continue
+
+        # 1.2 Doublon exact source
+        if sha in src_sha_map:
+            doublons.append((f, f"Copie exacte de {src_sha_map[sha]}"))
+            continue
+
+        # 1.3 Doublon perceptuel destination
+        est_dup_dst = False
+        for rel, dph in dst_phash_list:
+            if (ph - dph) <= seuil_phash:
+                doublons.append((f, f"Doublon visuel de {rel}"))
+                est_dup_dst = True
+                break
+        if est_dup_dst:
+            continue
+
+        # 1.4 Doublon perceptuel source
+        est_dup_src = False
+        for sname, sph in src_phash_list:
+            if (ph - sph) <= seuil_phash:
+                doublons.append((f, f"Doublon visuel de {sname}"))
+                est_dup_src = True
+                break
+        if est_dup_src:
+            continue
+
+        src_sha_map[sha] = f.name
+        src_phash_list.append((f.name, ph))
+
+        if ori in ("paysage", "portrait"):
+            candidats.append((f, ori))
+        else:
+            orphelins.append(f)
+
+    paysages = [f for f, ori in candidats if ori == "paysage"]
+    portraits = [f for f, ori in candidats if ori == "portrait"]
+    _log(
+        f"{len(doublons)} doublon(s), {len(paysages)} paysage(s), {len(portraits)} portrait(s)."
+    )
+
+    if not paysages or not portraits:
+        orphelins.extend(paysages)
+        orphelins.extend(portraits)
+        return PlanOrganisation(
+            couples=[],
+            doublons=doublons,
+            orphelins=sorted(orphelins),
+            paysages_candidats=paysages,
+            portraits_candidats=portraits,
+            nb_source_total=len(fichiers_source),
+        )
+
+    sift = _moteur_sift()
+    _log("Calcul des descripteurs SIFT…")
+    d_pa = [descripteurs(p, sift) for p in paysages]
+    d_po = [descripteurs(p, sift) for p in portraits]
+
+    _log("Mise en correspondance des couples…")
+    matrice: list[list[int]] = []
+    for i, dpo in enumerate(d_po):
+        ligne = [compter_inliers(dpo, dpa) for dpa in d_pa]
+        matrice.append(ligne)
+
+    libres_po = set(range(len(portraits)))
+    libres_pa = set(range(len(paysages)))
+    couples: list[Couple] = []
+
+    while libres_po and libres_pa:
+        meilleur = None
+        for i in libres_po:
+            for j in libres_pa:
+                s = matrice[i][j]
+                if meilleur is None or s > meilleur[0]:
+                    meilleur = (s, i, j)
+        score, i, j = meilleur
+        if score < seuil_inliers:
+            break
+        second = max(
+            [matrice[i][jj] for jj in libres_pa if jj != j]
+            + [matrice[ii][j] for ii in libres_po if ii != i]
+            + [0]
+        )
+        couples.append(
+            Couple(
+                paysage=paysages[j], portrait=portraits[i], score=score, second=second
+            )
+        )
+        libres_po.discard(i)
+        libres_pa.discard(j)
+
+    for j in libres_pa:
+        orphelins.append(paysages[j])
+    for i in libres_po:
+        orphelins.append(portraits[i])
+
+    return PlanOrganisation(
+        couples=couples,
+        doublons=doublons,
+        orphelins=sorted(orphelins),
+        paysages_candidats=paysages,
+        portraits_candidats=portraits,
+        nb_source_total=len(fichiers_source),
+    )
+
+
+def _cible_sans_ecraser(dossier: Path, nom_fichier: str) -> Path:
+    """Garantit un chemin unique dans dossier en ajoutant un suffixe numérique si nécessaire."""
+    dest = dossier / nom_fichier
+    if not dest.exists():
+        return dest
+    stem = Path(nom_fichier).stem
+    ext = Path(nom_fichier).suffix
+    k = 1
+    while (dossier / f"{stem}_{k}{ext}").exists():
+        k += 1
+    return dossier / f"{stem}_{k}{ext}"
+
+
+def appliquer_organisation(
+    plan: PlanOrganisation,
+    dossier_tries: str | Path,
+    *,
+    deplacer: bool = True,
+    couples_selectionnes: list[Couple] | None = None,
+    largeur: int = 3,
+    log: Callable[[str], None] | None = None,
+) -> dict:
+    """Applique le plan de rangement :
+
+    - Couples validés -> NNN_pa.png / NNN_po.png dans dossier_tries/
+    - Doublons -> dossier_tries/Doublons/
+    - Orphelins (+ couples non retenus) -> dossier_tries/A_verifier/
+    - Consigne un journal d'annulation dans .organisation_undo.json
+    - Met à jour le cache de signatures
+    """
+    dest = Path(dossier_tries)
+    dest.mkdir(parents=True, exist_ok=True)
+    d_doublons = dest / "Doublons"
+    d_verif = dest / "A_verifier"
+    d_doublons.mkdir(parents=True, exist_ok=True)
+    d_verif.mkdir(parents=True, exist_ok=True)
+
+    def _log(m: str) -> None:
+        if log:
+            log(m)
+
+    op = shutil.move if deplacer else shutil.copy2
+    journal: list[dict[str, str]] = []
+
+    couples_effectifs = (
+        plan.couples if couples_selectionnes is None else couples_selectionnes
+    )
+    set_retenus_po = {c.portrait for c in couples_effectifs}
+    couples_recales = [c for c in plan.couples if c.portrait not in set_retenus_po]
+
+    tous_orphelins = list(plan.orphelins)
+    for c in couples_recales:
+        tous_orphelins.append(c.paysage)
+        tous_orphelins.append(c.portrait)
+
+    debut_id = prochain_id(dest)
+    total_ids = debut_id + max(len(couples_effectifs) - 1, 0)
+    largeur_calc = max(largeur, len(str(total_ids)))
+
+    faits_couples: list[tuple[str, Path, Path]] = []
+    for idx, c in enumerate(couples_effectifs):
+        num = debut_id + idx
+        ident = f"{num:0{largeur_calc}d}"
+        pa_dest = dest / f"{ident}_pa{c.paysage.suffix.lower()}"
+        po_dest = dest / f"{ident}_po{c.portrait.suffix.lower()}"
+
+        op(str(c.paysage), str(pa_dest))
+        op(str(c.portrait), str(po_dest))
+
+        journal.append({"de": str(pa_dest), "vers": str(c.paysage)})
+        journal.append({"de": str(po_dest), "vers": str(c.portrait)})
+        faits_couples.append((ident, pa_dest, po_dest))
+
+    faits_doublons: list[Path] = []
+    for f, _ in plan.doublons:
+        if not f.exists():
+            continue
+        cible = _cible_sans_ecraser(d_doublons, f.name)
+        op(str(f), str(cible))
+        journal.append({"de": str(cible), "vers": str(f)})
+        faits_doublons.append(cible)
+
+    faits_orphelins: list[Path] = []
+    for f in tous_orphelins:
+        if not f.exists():
+            continue
+        cible = _cible_sans_ecraser(d_verif, f.name)
+        op(str(f), str(cible))
+        journal.append({"de": str(cible), "vers": str(f)})
+        faits_orphelins.append(cible)
+
+    _log(
+        f"Rangement terminé : {len(faits_couples)} couple(s), "
+        f"{len(faits_doublons)} doublon(s), {len(faits_orphelins)} orphelin(s)."
+    )
+
+    undo_path = dest / FICHIER_UNDO
+    if deplacer:
+        undo_path.write_text(
+            json.dumps(journal, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+
+    charger_signatures_destination(dest, inclure_doublons=True)
+
+    premier_id = faits_couples[0][0] if faits_couples else None
+    dernier_id = faits_couples[-1][0] if faits_couples else None
+
+    return {
+        "premier_id": premier_id,
+        "dernier_id": dernier_id,
+        "nb_couples": len(faits_couples),
+        "nb_doublons": len(faits_doublons),
+        "nb_orphelins": len(faits_orphelins),
+        "journal": undo_path if deplacer else None,
+    }
+
+
+def annuler_organisation(dossier_tries: str | Path) -> int:
+    """Restaure les fichiers déplacés lors de la dernière organisation.
+
+    Retourne le nombre de fichiers restaurés.
+    """
+    base = Path(dossier_tries)
+    chemin_undo = base / FICHIER_UNDO
+    if not chemin_undo.is_file():
+        raise FileNotFoundError(f"Aucun journal d'annulation dans {dossier_tries}")
+
+    entrees = json.loads(chemin_undo.read_text(encoding="utf-8"))
+    n = 0
+    for e in entrees:
+        de = Path(e["de"])
+        vers = Path(e["vers"])
+        if de.exists() and not vers.exists():
+            vers.parent.mkdir(parents=True, exist_ok=True)
+            shutil.move(str(de), str(vers))
+            n += 1
+
+    chemin_undo.unlink(missing_ok=True)
+    charger_signatures_destination(base, inclure_doublons=True)
+    return n
 
 
 # --- Audit d'un dossier déjà trié --------------------------------------------
 
+
 @dataclass
 class Suspect:
     ident: str
-    score_propre: int       # inliers entre NNN_po et NNN_pa
-    meilleur_ident: str     # paysage qui correspond le mieux au portrait
+    score_propre: int  # inliers entre NNN_po et NNN_pa
+    meilleur_ident: str  # paysage qui correspond le mieux au portrait
     meilleur_score: int
 
     @property
@@ -310,7 +753,12 @@ def auditer(
             if s > meilleur_s:
                 meilleur_s, meilleur_n = s, m
         resultats.append(
-            Suspect(ident=n, score_propre=propre, meilleur_ident=meilleur_n, meilleur_score=meilleur_s)
+            Suspect(
+                ident=n,
+                score_propre=propre,
+                meilleur_ident=meilleur_n,
+                meilleur_score=meilleur_s,
+            )
         )
     # Les erreurs probables d'abord.
     resultats.sort(key=lambda s: (not s.probable_erreur, s.score_propre))
@@ -394,11 +842,12 @@ Portrait — paysage actuel — paysage proposé. L'audit ne corrige rien : à v
 
 # --- Déduplication d'un dossier trié (NNN_pa / NNN_po) -----------------------
 
+
 @dataclass
 class PlanDedup:
-    gardes: list[str]              # numéros conservés (collection propre)
-    doublons: list[Path]          # fichiers redondants → dossier Doublons/
-    a_verifier: list[Path]        # images uniques sans partenaire → A_verifier/
+    gardes: list[str]  # numéros conservés (collection propre)
+    doublons: list[Path]  # fichiers redondants → dossier Doublons/
+    a_verifier: list[Path]  # images uniques sans partenaire → A_verifier/
 
 
 def _hash_par_numero(dossier: Path, suffixe: str) -> dict[str, tuple[Path, object]]:
@@ -449,7 +898,7 @@ def plan_deduplication(
             continue
         ph, oh = pa[n][1], po[n][1]
         if any(proche(ph, kph) and proche(oh, koh) for kph, koh, _ in kept):
-            doublons += [pa[n][0], po[n][0]]        # couple entièrement redondant
+            doublons += [pa[n][0], po[n][0]]  # couple entièrement redondant
         else:
             gardes.append(n)
             kept.append((ph, oh, n))
@@ -463,9 +912,9 @@ def plan_deduplication(
                 continue
             f, h = dic[n]
             if any(proche(h, kh) for kh in kept_hashes):
-                doublons.append(f)      # copie redondante d'un contenu conservé
+                doublons.append(f)  # copie redondante d'un contenu conservé
             else:
-                a_verifier.append(f)    # image unique orpheline → à revoir
+                a_verifier.append(f)  # image unique orpheline → à revoir
 
     return PlanDedup(gardes=gardes, doublons=doublons, a_verifier=a_verifier)
 
@@ -479,7 +928,10 @@ def appliquer_deduplication(
     """Déplace les fichiers du plan vers Doublons/ et A_verifier/, écrit un journal."""
     base = Path(dossier_tries)
     journal: list[dict[str, str]] = []
-    for fichiers, sous in ((plan.doublons, "Doublons"), (plan.a_verifier, "A_verifier")):
+    for fichiers, sous in (
+        (plan.doublons, "Doublons"),
+        (plan.a_verifier, "A_verifier"),
+    ):
         dest = base / sous
         for f in fichiers:
             if not f.exists():
@@ -492,7 +944,9 @@ def appliquer_deduplication(
             log(f"{len(fichiers)} fichier(s) → {sous}/")
 
     chemin = base / ".dedup_undo.json"
-    chemin.write_text(json.dumps(journal, ensure_ascii=False, indent=2), encoding="utf-8")
+    chemin.write_text(
+        json.dumps(journal, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
     return chemin
 
 

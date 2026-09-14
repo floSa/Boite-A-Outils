@@ -32,7 +32,7 @@ chacun leur modèle une seule fois (GitHub / HuggingFace), puis fonctionnent hor
 | [`catalogue.py`](../tools/catalogue.py) | Catalogue CSV/Excel d'une bibliothèque musicale (NAS), 2 ou 3 niveaux selon le dossier de catégorie | `pandas`, `pathlib` |
 | [`clean_library.py`](../tools/clean_library.py) | Normalisation des noms `Artiste\Album\Titres` (noms de fichiers seuls, jamais les tags), prévisualisation + annulation | `tools.files`, `re`, `unicodedata` |
 | [`images.py`](../tools/images.py) | Redimensionner, convertir (dont HEIC), dédupliquer, renuméroter | `pillow`, `pillow-heif`, `imagehash` |
-| [`fonds.py`](../tools/fonds.py) | Appariement fonds d'écran paysage↔portrait (SIFT + RANSAC), audit, déduplication | `opencv-python`, `imagehash`, `pillow` |
+| [`fonds.py`](../tools/fonds.py) | Organisation des fonds d'écran : déduplication (SHA-256 + pHash), appariement paysage↔portrait (SIFT + RANSAC), numérotation continue, rollback | `opencv-python`, `imagehash`, `pillow` |
 | [`video.py`](../tools/video.py) | Fusionner, découper, compresser, convertir, extraire images, GIF | `moviepy`, ffmpeg |
 | [`pdf.py`](../tools/pdf.py) | Extraire/fusionner/pivoter des pages, images↔PDF, compresser, protéger, texte | `pypdf`, `pymupdf` |
 | [`watermark.py`](../tools/watermark.py) | Filigrane texte en mosaïque (angle, espacement, couleur, opacité) sur images et PDF | `pillow`, `pymupdf` |
@@ -45,7 +45,7 @@ chacun leur modèle une seule fois (GitHub / HuggingFace), puis fonctionnent hor
 | [`traduction.py`](../tools/traduction.py) | Traduction hors-ligne (200 langues, CPU/GPU), téléchargement du modèle | `ctranslate2`, `transformers` (tokenizer), `sentencepiece` |
 | [`transcription.py`](../tools/transcription.py) | Transcription audio/vidéo → texte + sous-titres (CPU/GPU), téléchargement du modèle | `faster-whisper` (CTranslate2), `av` |
 
-> Les 50 pages de [`pages/`](../pages/) sont de fines enveloppes UI au-dessus de ces
+> Les 48 pages de [`pages/`](../pages/) sont de fines enveloppes UI au-dessus de ces
 > modules (une page = un outil, cf. la navigation dans [`app.py`](../app.py)).
 
 ---

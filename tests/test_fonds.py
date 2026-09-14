@@ -63,8 +63,8 @@ def test_inliers_vrai_vs_faux(tmp_path):
 
     vrai = fonds.compter_inliers(d_po, d_pa)
     faux = fonds.compter_inliers(d_po, d_autre)
-    assert vrai >= 30          # le vrai recadrage est bien reconnu
-    assert faux < vrai         # et nettement au-dessus de l'image sans rapport
+    assert vrai >= 30  # le vrai recadrage est bien reconnu
+    assert faux < vrai  # et nettement au-dessus de l'image sans rapport
 
 
 def test_apparier_synthetique(tmp_path):
@@ -78,7 +78,9 @@ def test_apparier_synthetique(tmp_path):
     assert not res.paysages_seuls and not res.portraits_seuls
     # chaque portrait apparié au bon paysage (même numéro)
     for c in res.couples:
-        assert c.paysage.name[2] == c.portrait.name[2]  # "pa1"/"po1" → caractère index 2
+        assert (
+            c.paysage.name[2] == c.portrait.name[2]
+        )  # "pa1"/"po1" → caractère index 2
 
 
 def test_prochain_id_et_ranger(tmp_path):
@@ -152,7 +154,7 @@ def test_deduplication_plan(tmp_path):
 
     assert plan.gardes == ["001"]
     assert {"002_pa.png", "002_po.png", "003_po.png"} <= noms_doublons
-    assert "003_pa.png" in noms_verif       # unique → jamais dans Doublons
+    assert "003_pa.png" in noms_verif  # unique → jamais dans Doublons
 
     plan2 = fonds.plan_deduplication(tmp_path, suspects={"003"}, confirmes_ok={"003"})
     assert "003" in plan2.gardes
@@ -170,3 +172,91 @@ def test_deduplication_applique_et_annule(tmp_path):
     assert n >= 3
     assert (tmp_path / "002_pa.png").is_file()
     assert (tmp_path / "003_pa.png").is_file()
+
+
+def test_lister_png_racine(tmp_path):
+    (tmp_path / "img1.png").write_bytes(b"x")
+    (tmp_path / "img2.PNG").write_bytes(b"x")
+    (tmp_path / "photo.jpg").write_bytes(b"x")
+    (tmp_path / "texte.txt").write_bytes(b"x")
+    sous_dossier = tmp_path / "SousDossier"
+    sous_dossier.mkdir()
+    (sous_dossier / "cache.png").write_bytes(b"x")
+
+    fichiers = fonds.lister_png_racine(tmp_path)
+    noms = [f.name for f in fichiers]
+    assert "img1.png" in noms
+    assert "img2.PNG" in noms
+    assert "photo.jpg" not in noms
+    assert "texte.txt" not in noms
+    assert "cache.png" not in noms
+
+
+def test_signatures_cache(tmp_path):
+    d_tries = tmp_path / "tries"
+    d_tries.mkdir()
+    pa = d_tries / "001_pa.png"
+    _ecrire(pa, _paysage(10))
+
+    sigs1, cache_path = fonds.charger_signatures_destination(d_tries)
+    assert cache_path.is_file()
+    assert "001_pa.png" in sigs1
+
+    # Second appel : réutilise le cache sans recalcul
+    sigs2, _ = fonds.charger_signatures_destination(d_tries)
+    assert sigs2["001_pa.png"][0] == sigs1["001_pa.png"][0]
+
+
+def test_preparer_et_appliquer_organisation(tmp_path):
+    src = tmp_path / "src"
+    tries = tmp_path / "tries"
+    src.mkdir()
+    tries.mkdir()
+
+    # Destination existante : 001_pa et 001_po
+    _ecrire(tries / "001_pa.png", _paysage(1))
+    _ecrire(tries / "001_po.png", _portrait_depuis(_paysage(1)))
+
+    # Source :
+    # - Un nouveau couple valide (graine 2)
+    pa2 = src / "nouveau_pa.png"
+    po2 = src / "nouveau_po.png"
+    _ecrire(pa2, _paysage(2))
+    _ecrire(po2, _portrait_depuis(_paysage(2)))
+
+    # - Un doublon de 001_pa.png (graine 1)
+    dup = src / "copie_de_001.png"
+    _ecrire(dup, _paysage(1))
+
+    # - Un orphelin sans partenaire (graine 99)
+    orph = src / "seul_pa.png"
+    _ecrire(orph, _paysage(99))
+
+    # 1. Préparation du plan
+    plan = fonds.preparer_organisation(src, tries, seuil_inliers=20)
+    assert len(plan.couples) == 1
+    assert plan.couples[0].paysage.name == "nouveau_pa.png"
+    assert len(plan.doublons) == 1
+    assert plan.doublons[0][0].name == "copie_de_001.png"
+    assert len(plan.orphelins) == 1
+    assert plan.orphelins[0].name == "seul_pa.png"
+
+    # 2. Application de l'organisation (mode déplacement)
+    bilan = fonds.appliquer_organisation(plan, tries, deplacer=True)
+    assert bilan["premier_id"] == "002"
+    assert bilan["dernier_id"] == "002"
+    assert (tries / "002_pa.png").is_file()
+    assert (tries / "002_po.png").is_file()
+    assert (tries / "Doublons" / "copie_de_001.png").is_file()
+    assert (tries / "A_verifier" / "seul_pa.png").is_file()
+    assert not pa2.exists()
+    assert not dup.exists()
+    assert not orph.exists()
+
+    # 3. Annulation (rollback)
+    nb_restaures = fonds.annuler_organisation(tries)
+    assert nb_restaures == 4
+    assert pa2.is_file()
+    assert po2.is_file()
+    assert dup.is_file()
+    assert orph.is_file()

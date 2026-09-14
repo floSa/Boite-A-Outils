@@ -29,9 +29,7 @@ sections = {
         page("images_convertir.py", "Convertir de format", "🔄"),
         page("images_doublons.py", "Trouver les doublons", "👯"),
         page("images_renumeroter.py", "Renuméroter", "🔢"),
-        page("fonds_ecran.py", "Apparier des fonds d'écran", "🖼️"),
-        page("fonds_audit.py", "Auditer les fonds triés", "🔎"),
-        page("fonds_dedup.py", "Dédupliquer les fonds triés", "🧹"),
+        page("fonds_organiser.py", "Organiser les fonds d'écran", "🖼️"),
         page("images_filigrane.py", "Filigrane", "💧"),
     ],
     "🎬 Vidéo": [
