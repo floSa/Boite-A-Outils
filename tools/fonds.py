@@ -561,20 +561,41 @@ def _cible_sans_ecraser(dossier: Path, nom_fichier: str) -> Path:
     return dossier / f"{stem}_{k}{ext}"
 
 
+def _supprimer_fichier(f: Path) -> None:
+    """Supprime un fichier de façon résiliente (gère Windows/SMB et permissions)."""
+    if not f.exists():
+        return
+    try:
+        f.unlink()
+    except Exception:
+        try:
+            import os
+            os.chmod(f, 0o777)
+            f.unlink()
+        except Exception:
+            import subprocess
+            p_win = str(f).replace('/mnt/m/', 'M:\\').replace('/mnt/c/', 'C:\\').replace('/', '\\')
+            subprocess.run(["powershell.exe", "-Command", f"Remove-Item -LiteralPath '{p_win}' -Force"], check=False)
+
+
 def _transferer_image_png(src: Path, dst: Path, deplacer: bool = True) -> None:
     """Déplace ou copie une image vers sa destination en garantissant le format PNG."""
     from PIL import Image
 
     if src.suffix.lower() == ".png":
         if deplacer:
-            shutil.move(str(src), str(dst))
+            try:
+                shutil.move(str(src), str(dst))
+            except Exception:
+                shutil.copyfile(str(src), str(dst))
+                _supprimer_fichier(src)
         else:
-            shutil.copy2(str(src), str(dst))
+            shutil.copyfile(str(src), str(dst))
     else:
         with Image.open(src) as im:
             im.save(dst, "PNG")
         if deplacer:
-            src.unlink()
+            _supprimer_fichier(src)
 
 
 def appliquer_organisation(
@@ -607,7 +628,6 @@ def appliquer_organisation(
         if log:
             log(m)
 
-    op = shutil.move if deplacer else shutil.copy2
     journal: list[dict[str, str]] = []
 
     couples_effectifs = (
@@ -644,11 +664,18 @@ def appliquer_organisation(
         if not f.exists():
             continue
         if supprimer_doublons:
-            f.unlink()
+            _supprimer_fichier(f)
             faits_doublons.append(f)
         else:
             cible = _cible_sans_ecraser(d_doublons, f.name)
-            op(str(f), str(cible))
+            if deplacer:
+                try:
+                    shutil.move(str(f), str(cible))
+                except Exception:
+                    shutil.copyfile(str(f), str(cible))
+                    _supprimer_fichier(f)
+            else:
+                shutil.copyfile(str(f), str(cible))
             journal.append({"de": str(cible), "vers": str(f)})
             faits_doublons.append(cible)
 
@@ -657,7 +684,14 @@ def appliquer_organisation(
         if not f.exists():
             continue
         cible = _cible_sans_ecraser(d_verif, f.name)
-        op(str(f), str(cible))
+        if deplacer:
+            try:
+                shutil.move(str(f), str(cible))
+            except Exception:
+                shutil.copyfile(str(f), str(cible))
+                _supprimer_fichier(f)
+        else:
+            shutil.copyfile(str(f), str(cible))
         journal.append({"de": str(cible), "vers": str(f)})
         faits_orphelins.append(cible)
 
