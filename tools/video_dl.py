@@ -7,6 +7,8 @@ Utilise le binaire ffmpeg embarqué par le projet pour l'assemblage et l'extract
 from __future__ import annotations
 
 import logging
+import re
+import urllib.request
 from pathlib import Path
 from typing import Any, Callable
 
@@ -15,6 +17,36 @@ import yt_dlp
 from tools.ffmpeg_utils import chemin_ffmpeg
 
 logger = logging.getLogger(__name__)
+
+
+def normaliser_url(url: str) -> str:
+    """Normalise certaines URLs spécifiques pour contourner des blocages régionaux."""
+    u = url.strip()
+    # Eporner : en France, les URLs directes /video-XXX/ sont interceptées par une page
+    # de vérification d'âge qui empêche yt-dlp d'extraire le hash du lecteur.
+    # L'URL d'intégration /embed/XXX contourne cette restriction sans altérer le flux vidéo.
+    m = re.match(
+        r"^https?://(?:www\.)?eporner\.com/(?:(?:hd-porn|embed)/|video-)([\w]+)",
+        u,
+        re.IGNORECASE,
+    )
+    if m:
+        return f"https://www.eporner.com/embed/{m.group(1)}/"
+    return u
+
+
+def _extraire_titre_page(url_embed: str) -> str | None:
+    """Tente de récupérer le titre HTML si l'extracteur yt-dlp renvoie 'Untitled'."""
+    try:
+        req = urllib.request.Request(url_embed, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            html = resp.read().decode("utf-8", "ignore")
+            m = re.search(r"<title>(.+?)\s*-\s*EPORNER</title>", html, re.I)
+            if m:
+                return m.group(1).strip()
+    except Exception:
+        pass
+    return None
 
 
 def formater_duree(secondes: float | int | None) -> str:
@@ -40,6 +72,8 @@ def recuperer_infos(url: str) -> dict[str, Any]:
     if not url or not url.strip():
         raise ValueError("L'URL fournie est vide.")
 
+    url_propre = normaliser_url(url)
+
     opts: dict[str, Any] = {
         "skip_download": True,
         "quiet": True,
@@ -49,14 +83,20 @@ def recuperer_infos(url: str) -> dict[str, Any]:
 
     try:
         with yt_dlp.YoutubeDL(opts) as ydl:
-            infos = ydl.extract_info(url.strip(), download=False)
+            infos = ydl.extract_info(url_propre, download=False)
             if not infos:
                 raise ValueError(
                     "Impossible de récupérer les informations de la vidéo."
                 )
 
+            titre = infos.get("title")
+            if not titre or titre == "Untitled":
+                titre = _extraire_titre_page(url_propre) or infos.get(
+                    "description", "Sans titre"
+                )
+
             return {
-                "titre": infos.get("title", "Sans titre"),
+                "titre": titre,
                 "auteur": infos.get("uploader")
                 or infos.get("channel", "Auteur inconnu"),
                 "duree_secondes": infos.get("duration"),
@@ -98,12 +138,25 @@ def telecharger_video(
     if not url or not url.strip():
         raise ValueError("L'URL fournie est vide.")
 
+    url_propre = normaliser_url(url)
+
     # Modèle de nom de sortie
     if nom_fichier and nom_fichier.strip():
         stem = Path(nom_fichier.strip()).stem
         modele_sortie = str(dest / f"{stem}.%(ext)s")
     else:
-        modele_sortie = str(dest / "%(title)s.%(ext)s")
+        titre_recup = (
+            _extraire_titre_page(url_propre)
+            if "eporner.com/embed/" in url_propre
+            else None
+        )
+        if titre_recup:
+            nom_nettoye = "".join(
+                c for c in titre_recup if c not in r'\/:*?"<>|'
+            ).strip()
+            modele_sortie = str(dest / f"{nom_nettoye}.%(ext)s")
+        else:
+            modele_sortie = str(dest / "%(title)s.%(ext)s")
 
     ffmpeg_bin = chemin_ffmpeg()
 
@@ -167,7 +220,7 @@ def telecharger_video(
 
     try:
         with yt_dlp.YoutubeDL(opts) as ydl:
-            infos = ydl.extract_info(url.strip(), download=True)
+            infos = ydl.extract_info(url_propre, download=True)
             if not infos:
                 raise RuntimeError("Aucune donnée téléchargée.")
 

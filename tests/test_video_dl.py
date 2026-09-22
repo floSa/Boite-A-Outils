@@ -111,3 +111,13 @@ def test_telecharger_video_audio(mock_ydl_cls, mock_ffmpeg, tmp_path: Path):
         p.get("key") == "FFmpegExtractAudio"
         for p in args_opts.get("postprocessors", [])
     )
+
+
+def test_normaliser_url_eporner():
+    from tools.video_dl import normaliser_url
+
+    url_video = "https://www.eporner.com/video-alSUD5GG2fI/titre-exemple/"
+    assert normaliser_url(url_video) == "https://www.eporner.com/embed/alSUD5GG2fI/"
+
+    url_autre = "https://www.youtube.com/watch?v=12345"
+    assert normaliser_url(url_autre) == url_autre
