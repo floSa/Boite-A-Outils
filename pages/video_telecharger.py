@@ -54,13 +54,35 @@ map_qualite = {
     "Audio seul (MP3)": "audio",
 }
 
+with st.expander("🔒 Vidéo privée ou protégée (nécessite une connexion)", expanded=False):
+    st.caption(
+        "Certains sites (Vimeo privé, etc.) exigent d'être connecté pour autoriser le "
+        "téléchargement. Sélectionnez le navigateur où vous êtes déjà connecté au site : "
+        "ses cookies de session seront utilisés."
+    )
+    choix_navigateur = st.selectbox(
+        "Récupérer les cookies depuis",
+        options=["Aucun", "Chrome", "Firefox", "Edge", "Brave"],
+        index=0,
+    )
+
+map_navigateur = {
+    "Aucun": None,
+    "Chrome": "chrome",
+    "Firefox": "firefox",
+    "Edge": "edge",
+    "Brave": "brave",
+}
+
 # Aperçu optionnel des informations de la vidéo
 if url.strip():
     with st.expander("ℹ️ Prévisualiser les informations de la vidéo", expanded=False):
         if st.button("Charger les informations"):
             with st.spinner("Récupération des métadonnées…"):
                 try:
-                    infos = recuperer_infos(url)
+                    infos = recuperer_infos(
+                        url, navigateur_cookies=map_navigateur[choix_navigateur]
+                    )
                     col_mini, col_details = st.columns([1, 2])
                     if infos.get("miniature"):
                         with col_mini:
@@ -114,6 +136,7 @@ if st.button("🚀 Lancer le téléchargement", type="primary", use_container_wi
             qualite=map_qualite[choix_qualite],
             nom_fichier=nom_perso.strip() if nom_perso.strip() else None,
             progression=_progression,
+            navigateur_cookies=map_navigateur[choix_navigateur],
         )
 
         taille_mo = fichier_telecharge.stat().st_size / (1024 * 1024)

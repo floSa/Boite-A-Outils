@@ -62,10 +62,13 @@ def formater_duree(secondes: float | int | None) -> str:
     return f"{m:02d}:{reste_s:02d}"
 
 
-def recuperer_infos(url: str) -> dict[str, Any]:
+def recuperer_infos(url: str, *, navigateur_cookies: str | None = None) -> dict[str, Any]:
     """Extrait les métadonnées d'une vidéo (titre, durée, miniature, etc.) sans la télécharger.
 
     :param url: URL de la vidéo web.
+    :param navigateur_cookies: Nom du navigateur ("chrome", "firefox", "edge", "brave", ...)
+        depuis lequel récupérer les cookies de session, nécessaire pour les vidéos qui
+        exigent d'être connecté (ex. Vimeo privé). None pour ne pas utiliser de cookies.
     :return: Dictionnaire contenant titre, durée, auteur, miniature, etc.
     :raises ValueError: si l'URL est invalide ou non prise en charge.
     """
@@ -80,6 +83,8 @@ def recuperer_infos(url: str) -> dict[str, Any]:
         "no_warnings": True,
         "extract_flat": False,
     }
+    if navigateur_cookies:
+        opts["cookiesfrombrowser"] = (navigateur_cookies,)
 
     try:
         with yt_dlp.YoutubeDL(opts) as ydl:
@@ -119,6 +124,7 @@ def telecharger_video(
     qualite: str = "meilleure",
     nom_fichier: str | None = None,
     progression: Callable[[dict[str, Any]], None] | None = None,
+    navigateur_cookies: str | None = None,
 ) -> Path:
     """Télécharge une vidéo ou son audio vers un dossier local.
 
@@ -127,6 +133,9 @@ def telecharger_video(
     :param qualite: "meilleure", "1080p", "720p" ou "audio".
     :param nom_fichier: Nom de fichier optionnel (par défaut: titre de la vidéo).
     :param progression: Callback de progression recevant le dictionnaire d'état yt-dlp.
+    :param navigateur_cookies: Nom du navigateur ("chrome", "firefox", "edge", "brave", ...)
+        depuis lequel récupérer les cookies de session, nécessaire pour les vidéos qui
+        exigent d'être connecté (ex. Vimeo privé). None pour ne pas utiliser de cookies.
     :return: Chemin complet (Path) du fichier téléchargé.
     :raises NotADirectoryError: si le dossier de destination n'existe pas.
     :raises ValueError: si l'URL ou la qualité est invalide.
@@ -167,6 +176,8 @@ def telecharger_video(
         "no_warnings": True,
         "windowsfilenames": True,
     }
+    if navigateur_cookies:
+        opts["cookiesfrombrowser"] = (navigateur_cookies,)
 
     if progression:
         opts["progress_hooks"] = [progression]
