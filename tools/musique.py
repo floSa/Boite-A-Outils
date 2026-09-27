@@ -29,7 +29,18 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable
 
-EXT_AUDIO = (".flac", ".mp3", ".m4a", ".wav", ".ogg", ".opus", ".wma", ".aac", ".aiff", ".alac")
+EXT_AUDIO = (
+    ".flac",
+    ".mp3",
+    ".m4a",
+    ".wav",
+    ".ogg",
+    ".opus",
+    ".wma",
+    ".aac",
+    ".aiff",
+    ".alac",
+)
 # Images : jetées (non déplacées). Le reste (non-audio, non-image) suit le titre.
 EXT_IMAGE = (".jpg", ".jpeg", ".png", ".webp", ".bmp", ".gif", ".tiff")
 FICHIERS_JUNK = {"thumbs.db", ".ds_store", "desktop.ini"}
@@ -51,8 +62,10 @@ class AlbumSingle:
     artiste: Path
     album: Path
     audio: Path
-    a_deplacer: list[Path] = field(default_factory=list)  # fichiers non-image → Singles/
-    autres: list[Path] = field(default_factory=list)      # sous-dossiers → « à vérifier »
+    a_deplacer: list[Path] = field(
+        default_factory=list
+    )  # fichiers non-image → Singles/
+    autres: list[Path] = field(default_factory=list)  # sous-dossiers → « à vérifier »
 
     @property
     def a_verifier(self) -> bool:
@@ -91,7 +104,11 @@ def _classer(album: Path) -> AlbumSingle | None:
     if len(audios) != 1:
         return None  # vrai album (0 ou plusieurs audios) ou multi-disques
     return AlbumSingle(
-        album.parent, album, audios[0], a_deplacer=sorted(a_deplacer), autres=sous_dossiers
+        album.parent,
+        album,
+        audios[0],
+        a_deplacer=sorted(a_deplacer),
+        autres=sous_dossiers,
     )
 
 
@@ -163,7 +180,9 @@ def _nom_libre(dossier: Path, nom: str, reserves: set[str]) -> Path:
 class Mouvement:
     audio_src: Path
     audio_dst: Path
-    annexes: list[tuple[Path, Path]] = field(default_factory=list)  # (src, dst) non-image
+    annexes: list[tuple[Path, Path]] = field(
+        default_factory=list
+    )  # (src, dst) non-image
 
 
 def previsualiser(plan: Plan) -> list[Mouvement]:
@@ -201,9 +220,13 @@ def appliquer(
     Ne supprime aucun fichier. Résilient : une erreur sur un single est collectée
     et le traitement continue.
     """
+
     def _log(m: str) -> None:
         if log:
-            log(m)
+            try:
+                log(m)
+            except UnicodeEncodeError:
+                log(m.encode("ascii", "replace").decode("ascii"))
 
     journal: list[dict] = []
     erreurs: list[str] = []
@@ -215,7 +238,9 @@ def appliquer(
         try:
             mv.audio_dst.parent.mkdir(parents=True, exist_ok=True)
             shutil.move(str(mv.audio_src), str(mv.audio_dst))
-            journal.append({"type": "move", "de": str(mv.audio_dst), "vers": str(mv.audio_src)})
+            journal.append(
+                {"type": "move", "de": str(mv.audio_dst), "vers": str(mv.audio_src)}
+            )
             for src, dst in mv.annexes:
                 shutil.move(str(src), str(dst))
                 journal.append({"type": "move", "de": str(dst), "vers": str(src)})
@@ -225,7 +250,9 @@ def appliquer(
         nb_singles += 1
 
         # Le reste du dossier (images, junk) part en corbeille, tel quel.
-        dest = _nom_libre(corbeille / sa.artiste.name, sa.album.name, reserves_corbeille)
+        dest = _nom_libre(
+            corbeille / sa.artiste.name, sa.album.name, reserves_corbeille
+        )
         try:
             dest.parent.mkdir(parents=True, exist_ok=True)
             shutil.move(str(sa.album), str(dest))
@@ -237,11 +264,16 @@ def appliquer(
 
     chemin = Path(racine) / NOM_JOURNAL
     try:
-        chemin.write_text(json.dumps(journal, ensure_ascii=False, indent=2), encoding="utf-8")
+        chemin.write_text(
+            json.dumps(journal, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
     except OSError as e:
         erreurs.append(f"Journal d'annulation non écrit ({chemin}) : {e}")
     return ResultatSingles(
-        journal=chemin, nb_singles=nb_singles, nb_en_corbeille=nb_corbeille, erreurs=erreurs
+        journal=chemin,
+        nb_singles=nb_singles,
+        nb_en_corbeille=nb_corbeille,
+        erreurs=erreurs,
     )
 
 

@@ -50,6 +50,7 @@ from tools.files import Renommage
 
 AUDIO_EXT = {".flac", ".mp3", ".m4a", ".wav", ".ogg", ".opus", ".aiff", ".wma", ".alac"}
 NOM_JOURNAL_NETTOYAGE = ".nettoyage_undo.json"
+NOM_DOSSIER_SINGLES = "Singles"
 
 # Caractères interdits par le système de fichiers → remplacés par « _ ».
 _CARACTERES_INTERDITS = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
@@ -58,8 +59,8 @@ _CARACTERES_INTERDITS = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
 # « Durs » : toujours retirés (ce sont clairement des métadonnées parasites).
 _SUFFIXES_DURS = [
     re.compile(r"\((?:clean|explicit)\)\s*$", re.I),  # (Clean) / (Explicit)
-    re.compile(r"\[UPC[^\]]*\]\s*$", re.I),           # [UPC5060525433962]
-    re.compile(r"\{[^}]*\}\s*$"),                     # {WEB}
+    re.compile(r"\[UPC[^\]]*\]\s*$", re.I),  # [UPC5060525433962]
+    re.compile(r"\{[^}]*\}\s*$"),  # {WEB}
 ]
 # Une année en fin — (2023) ou [2023] — n'est retirée QUE si un suffixe dur a
 # déjà été retiré à sa droite (ex. « (2023) (Clean) [UPC…] »). Une année SEULE
@@ -185,6 +186,8 @@ def previsualiser_nettoyage(
     total = len(artistes)
     for i, artiste in enumerate(artistes, 1):
         for album in _sous_dossiers_visibles(artiste):
+            if album.name.lower() == NOM_DOSSIER_SINGLES.lower():
+                continue
             # Règle 2 — fichiers audio (récursif pour les albums multi-disques).
             for f, stem, ext in _fichiers_audio(album):
                 nouveau_stem = renommer_piste(stem)
@@ -262,8 +265,6 @@ def appliquer(plan: PlanNettoyage, racine: str | Path) -> ResultatNettoyage:
     except OSError as e:
         erreurs.append(f"Journal d'annulation non écrit ({chemin}) : {e}")
     return ResultatNettoyage(journal=chemin, nb_renommes=len(journal), erreurs=erreurs)
-
-
 
 
 def annuler(racine: str | Path) -> int:

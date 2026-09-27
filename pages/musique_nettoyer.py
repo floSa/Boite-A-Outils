@@ -13,8 +13,7 @@ from ui import champ_dossier
 
 st.title("🧼 Uniformiser les noms")
 st.caption("Structure attendue : `Artiste / Album / Titres`. Cet outil :")
-st.markdown(
-    """
+st.markdown("""
 - **Nettoie les noms de dossiers d'album** en retirant les suffixes techniques
   parasites en fin de nom :
     - `(Clean)`, `(Explicit)`, `[UPC…]`, `{WEB}` → toujours retirés
@@ -32,7 +31,13 @@ st.markdown(
 
 Rien n'est modifié tant que tu n'as pas cliqué **Appliquer** : l'analyse ne fait
 qu'afficher ce qui changerait. Un journal permet d'annuler après coup.
-"""
+""")
+
+st.info(
+    "💡 **Ordre conseillé** : appliquez cet outil (**Uniformiser les noms**) **en premier**, "
+    "puis lancez ensuite **Regrouper les singles**. De cette manière, les noms d'albums sont nettoyés "
+    "et les pistes au format `01. Artiste - Titre` sont d'abord normalisées en `01 - Titre` "
+    "avant que les singles ne soient déplacés et allégés de leur numéro dans `Singles/`."
 )
 
 racine = champ_dossier(
@@ -72,7 +77,10 @@ if plan is not None:
             st.markdown("#### Dossiers d'album mal nommés")
             st.dataframe(
                 pd.DataFrame(
-                    [{"Nom actuel": r.ancien.name, "Nom cible": r.nouveau.name} for r in plan.albums]
+                    [
+                        {"Nom actuel": r.ancien.name, "Nom cible": r.nouveau.name}
+                        for r in plan.albums
+                    ]
                 ),
                 use_container_width=True,
                 hide_index=True,

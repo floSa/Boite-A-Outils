@@ -21,8 +21,17 @@ st.caption(
     f"`{NOM_CORBEILLE}/`, à supprimer d'un clic ensuite. Rien n'est perdu."
 )
 
+st.info(
+    "💡 **Ordre conseillé** : il est recommandé d'exécuter d'abord **Uniformiser les noms** "
+    "avant de regrouper les singles. Ainsi, les métadonnées parasites et les éventuels préfixes "
+    "d'artiste dans les pistes (`01. Artiste - Titre` → `01 - Titre`) sont assainis avant le retrait "
+    "du numéro de piste et le transfert dans `Singles/`."
+)
+
 racine = champ_dossier(
-    "Dossier racine de la bibliothèque", "musique_singles_racine", placeholder="M:/musiques"
+    "Dossier racine de la bibliothèque",
+    "musique_singles_racine",
+    placeholder="M:/musiques",
 )
 
 if st.button("Analyser", type="primary"):
@@ -68,7 +77,9 @@ if plan.a_verifier:
     with st.expander(f"⚠️ {len(plan.a_verifier)} dossier(s) à vérifier (non traités)"):
         for sa in plan.a_verifier:
             extras = ", ".join(p.name for p in sa.autres)
-            st.write(f"- `{sa.artiste.name}/{sa.album.name}` — contenu en plus : {extras}")
+            st.write(
+                f"- `{sa.artiste.name}/{sa.album.name}` — contenu en plus : {extras}"
+            )
 
 st.divider()
 if plan.a_traiter:

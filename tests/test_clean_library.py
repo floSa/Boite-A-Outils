@@ -10,12 +10,16 @@ def _f(chemin, contenu="x"):
 
 # --- Règle 1 : nom de dossier d'album ---------------------------------------
 
+
 @pytest.mark.parametrize(
     "entree, attendu",
     [
         # exemple exact demandé : date + Clean + UPC → nom seul
         ("Derealised (2023) (Clean) [UPC3616849569515]", "Derealised"),
-        ("Génération(s) Eperdue(s) (2018) (Clean) [UPC5060525433962]", "Génération(s) Eperdue(s)"),
+        (
+            "Génération(s) Eperdue(s) (2018) (Clean) [UPC5060525433962]",
+            "Génération(s) Eperdue(s)",
+        ),
         # date suivie d'un suffixe dur → date retirée aussi
         ("Album (2018) (Clean)", "Album"),
         ("Album [2018] [UPC123]", "Album"),
@@ -30,7 +34,10 @@ def _f(chemin, contenu="x"):
         # nom entièrement « technique » → jamais vidé, conservé tel quel
         ("{Awayland}", "{Awayland}"),
         # parenthèses porteuses de sens préservées
-        ("Le Patient (Bande Originale du Film)", "Le Patient (Bande Originale du Film)"),
+        (
+            "Le Patient (Bande Originale du Film)",
+            "Le Patient (Bande Originale du Film)",
+        ),
         ("X (Deluxe)", "X (Deluxe)"),
         ("Y (Four Tet Remix)", "Y (Four Tet Remix)"),
         ("Génération(s) Eperdue(s)", "Génération(s) Eperdue(s)"),
@@ -41,6 +48,7 @@ def test_nettoyer_nom_album(entree, attendu):
 
 
 # --- Règle 2 : nom de fichier audio -----------------------------------------
+
 
 @pytest.mark.parametrize(
     "entree, attendu",
@@ -62,6 +70,7 @@ def test_renommer_piste_non_touche(entree):
 
 # --- Intégration : previsualiser + appliquer --------------------------------
 
+
 def _biblio(racine):
     _f(racine / "Artiste" / "Album (2018) (Clean)" / "01. Artiste - Un.flac")
     _f(racine / "Artiste" / "Album (2018) (Clean)" / "02. Artiste - Deux.flac")
@@ -73,6 +82,8 @@ def _biblio(racine):
     _f(racine / "Artiste" / "OST (Bande Originale du Film)" / "01 - Thème.flac")
     # dossier ignoré (préfixe _)
     _f(racine / "Artiste" / "_perso" / "05. X - Secret.flac")
+    # dossier Singles ignoré
+    _f(racine / "Artiste" / "Singles" / "01. Artiste - DejaDansSingles.flac")
 
 
 def test_previsualiser_albums_et_pistes(tmp_path):
@@ -88,8 +99,9 @@ def test_previsualiser_albums_et_pistes(tmp_path):
     assert "01 - Un.flac" in pistes and "02 - Deux.flac" in pistes
     # multi-disques : les deux CD sont traités même si le dossier n'est pas renommé
     assert "01 - A.flac" in pistes and "01 - B.flac" in pistes
-    # « _perso » ignoré, fichier déjà propre non touché
+    # « _perso » et « Singles » ignorés, fichier déjà propre non touché
     assert all("Secret" not in n for n in pistes)
+    assert all("DejaDansSingles" not in n for n in pistes)
 
 
 def test_appliquer_aucune_perte_puis_idempotent(tmp_path):
@@ -102,14 +114,18 @@ def test_appliquer_aucune_perte_puis_idempotent(tmp_path):
     assert resultat.nb_renommes > 0
 
     # le journal ne compte pas comme un fichier audio perdu
-    apres = sum(1 for p in tmp_path.rglob("*") if p.is_file() and p.suffix in cl.AUDIO_EXT)
+    apres = sum(
+        1 for p in tmp_path.rglob("*") if p.is_file() and p.suffix in cl.AUDIO_EXT
+    )
     avant_audio = avant  # tous les _f ci-dessus sont des .flac
     assert apres == avant_audio
 
     # résultat attendu sur disque
     assert (tmp_path / "Artiste" / "Album" / "01 - Un.flac").is_file()
     assert (tmp_path / "Artiste" / "Live [2019]" / "CD 01" / "01 - A.flac").is_file()
-    assert (tmp_path / "Artiste" / "OST (Bande Originale du Film)" / "01 - Thème.flac").is_file()
+    assert (
+        tmp_path / "Artiste" / "OST (Bande Originale du Film)" / "01 - Thème.flac"
+    ).is_file()
 
     # seconde passe : 0 action
     plan2 = cl.previsualiser_nettoyage(tmp_path)
@@ -122,7 +138,9 @@ def test_annuler_restaure(tmp_path):
     cl.appliquer(plan, tmp_path)
     n = cl.annuler(tmp_path)
     assert n > 0
-    assert (tmp_path / "Artiste" / "Album (2018) (Clean)" / "01. Artiste - Un.flac").is_file()
+    assert (
+        tmp_path / "Artiste" / "Album (2018) (Clean)" / "01. Artiste - Un.flac"
+    ).is_file()
 
 
 def test_pas_ecrasement_collision(tmp_path):
