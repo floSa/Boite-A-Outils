@@ -76,6 +76,7 @@ sections = {
         page("musique_catalogue.py", "Catalogue de la bibliothèque", "🎵"),
         page("musique_nettoyer.py", "Uniformiser les noms", "🧼"),
         page("musique_singles.py", "Regrouper les singles", "🎼"),
+        page("musique_doublons.py", "Supprimer les doublons", "👯"),
     ],
     "📚 Bibliothèque municipale": [
         page("biblio_cotes.py", "Trier des cotes", "📇"),
