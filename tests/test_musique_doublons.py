@@ -21,6 +21,38 @@ def test_normaliser_titre():
     )
 
 
+def test_nom_album_base():
+    # Détection des mentions d'éditions entre parenthèses, crochets ou en fin de nom
+    assert (
+        md.nom_album_base("Doo-Wops & Hooligans (Deluxe Edition)")
+        == "Doo-Wops & Hooligans"
+    )
+    assert (
+        md.nom_album_base("Doo-Wops & Hooligans [Extended]") == "Doo-Wops & Hooligans"
+    )
+    assert md.nom_album_base("Doo-Wops & Hooligans - Deluxe") == "Doo-Wops & Hooligans"
+    assert md.nom_album_base("Doo-Wops & Hooligans Deluxe") == "Doo-Wops & Hooligans"
+    assert (
+        md.nom_album_base("Doo-Wops & Hooligans Deluxe Edition")
+        == "Doo-Wops & Hooligans"
+    )
+    assert (
+        md.nom_album_base("Random Access Memories (10th Anniversary Edition)")
+        == "Random Access Memories"
+    )
+    assert md.nom_album_base("Thriller [25th Anniversary]") == "Thriller"
+    assert md.nom_album_base("Thriller (Remastered 2021)") == "Thriller"
+
+    # Mots-clés seuls : ne JAMAIS vider le nom si c'est le titre réel de l'album
+    assert md.nom_album_base("Deluxe") == "Deluxe"
+    assert md.nom_album_base("(Deluxe)") == "Deluxe"
+    assert md.nom_album_base("[Deluxe Edition]") == "Deluxe Edition"
+    assert md.nom_album_base("Extended") == "Extended"
+
+    # Nom d'album intégrant le mot au milieu (groupe Deluxe)
+    assert md.nom_album_base("The Deluxe Family Show") == "The Deluxe Family Show"
+
+
 def test_detecter_singles_en_album(tmp_path):
     # Artiste 1 : single présent dans un album + single unique
     _f(tmp_path / "ArtisteA" / "Singles" / "Titre Unique.flac", "contenu_unique")
@@ -69,6 +101,8 @@ def test_detecter_albums_similaires(tmp_path):
     assert p.similarite == 1.0  # 4 / min(4, 6) = 100%
     assert len(p.titres_communs) == 4
     assert len(p.titres_uniques_2) == 2 or len(p.titres_uniques_1) == 2
+    assert p.meme_nom_base is True
+    assert p.nom_base == "Album"
 
 
 def test_supprimer_fichiers_et_annuler(tmp_path):

@@ -55,6 +55,67 @@ def normaliser_titre(titre: str) -> str:
     return " ".join(t.lower().split())
 
 
+MOTS_CLES_EDITIONS = (
+    r"super\s+deluxe(?:\s+edition|\s+version)?",
+    r"deluxe(?:\s+edition|\s+version)?",
+    r"extended(?:\s+edition|\s+version|\s+cut)?",
+    r"expanded(?:\s+edition|\s+version)?",
+    r"special(?:\s+edition|\s+version)?",
+    r"limited(?:\s+edition|\s+version)?",
+    r"collector\'?s?(?:\s+edition)?",
+    r"tour\s+edition",
+    r"(?:\d+th\s+)?anniversary(?:\s+edition)?",
+    r"remaster(?:ed|is[eé]e?)?(?:\s+\d{4})?",
+    r"bonus\s+tracks?(?:\s+edition)?",
+    r"complete\s+edition",
+    r"reissue",
+    r"edition\s+deluxe",
+    r"version\s+longue",
+    r"instrumental(?:\s+version)?",
+    r"acoustic(?:\s+version)?",
+    r"live\s+edition",
+    r"standard(?:\s+edition|\s+version)?",
+    r"definitive(?:\s+edition)?",
+    r"international(?:\s+edition)?",
+)
+
+_PATTERN_SUFFIXE_EDITION = re.compile(
+    r"(?:\s*[-–—:|]\s*|\s+)(?:" + "|".join(MOTS_CLES_EDITIONS) + r")\s*$",
+    re.IGNORECASE,
+)
+
+
+def nom_album_base(nom: str) -> str:
+    """Extrait le nom de base d'un album en retirant crochets, parenthèses et mentions d'édition.
+
+    Préserve le nom complet si celui-ci n'est constitué que du mot-clé (ex: l'album 'Deluxe'
+    du groupe Deluxe n'est pas vidé).
+    """
+    original = nom.strip()
+
+    # 1. Supprimer le contenu entre crochets [...], parenthèses (...) ou accolades {...}
+    sans_crochets = re.sub(r"[\(\[\{][^\)\]\}]*[\)\]\}]", "", original).strip()
+
+    # Si tout a été supprimé (ex: album nommé '(Deluxe)' ou '[Disk 1]'), préserver le contenu sans les délimiteurs
+    base = (
+        sans_crochets
+        if sans_crochets
+        else re.sub(r"^[(\[{]+|[)\]}]+$", "", original).strip()
+    )
+    base = re.sub(r"\s*[-–—:|]\s*$", "", base).strip()
+
+    # 2. Supprimer les suffixes d'édition (Deluxe, Extended, etc.) en fin de chaîne ou après un séparateur
+    while True:
+        sans_suffixe = _PATTERN_SUFFIXE_EDITION.sub("", base).strip()
+        sans_suffixe = re.sub(r"\s*[-–—:|]\s*$", "", sans_suffixe).strip()
+        if sans_suffixe and sans_suffixe != base:
+            base = sans_suffixe
+        else:
+            break
+
+    return base or original
+
+
 def _hash_fichier(path: Path, taille_bloc: int = 1 << 20) -> str:
     """Calcule l'empreinte SHA-1 d'un fichier."""
     h = hashlib.sha1()
@@ -325,6 +386,8 @@ class PaireAlbumsSimilaires:
     titres_uniques_2: list[str]
     taille_1: int
     taille_2: int
+    meme_nom_base: bool = False
+    nom_base: str = ""
 
 
 def detecter_albums_similaires(
@@ -384,7 +447,17 @@ def detecter_albums_similaires(
                         continue
 
                     ratio = len(communes) / min_taille
-                    if ratio >= seuil_similarite:
+
+                    # Vérifier si les noms d'albums nettoyés (sans crochets/parenthèses/deluxe) sont identiques
+                    base_1 = nom_album_base(alb_1.name)
+                    base_2 = nom_album_base(alb_2.name)
+                    cle_base_1 = normaliser_titre(base_1)
+                    cle_base_2 = normaliser_titre(base_2)
+                    meme_nom_base = bool(cle_base_1 and cle_base_1 == cle_base_2)
+
+                    # Si même nom d'album de base (ex: Standard vs Deluxe), on détecte dès 35% de titres partagés,
+                    # sinon on applique le seuil_similarite configuré.
+                    if (meme_nom_base and ratio >= 0.35) or (ratio >= seuil_similarite):
                         paires.append(
                             PaireAlbumsSimilaires(
                                 artiste=artiste.name,
@@ -402,6 +475,8 @@ def detecter_albums_similaires(
                                 ),
                                 taille_1=sz_1,
                                 taille_2=sz_2,
+                                meme_nom_base=meme_nom_base,
+                                nom_base=base_1 if meme_nom_base else "",
                             )
                         )
 

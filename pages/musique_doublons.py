@@ -176,11 +176,19 @@ with tab3:
     else:
         actions_albums: list[tuple[Path, str]] = []
         for idx, p in enumerate(albums):
+            badge_base = (
+                f" — 🎯 Même album : « {p.nom_base} »" if p.meme_nom_base else ""
+            )
             titre_exp = (
-                f"[{p.artiste}] « {p.album_1.name} » ↔ « {p.album_2.name} » "
+                f"[{p.artiste}] « {p.album_1.name} » ↔ « {p.album_2.name} »{badge_base} "
                 f"({p.similarite * 100:.0f}% en commun)"
             )
             with st.expander(titre_exp, expanded=False):
+                if p.meme_nom_base:
+                    st.info(
+                        f"🎯 **Éditions du même album** : ces dossiers partagent le nom de base "
+                        f"**« {p.nom_base} »** (après nettoyage des crochets, parenthèses et mots-clés d'édition)."
+                    )
                 c1, c2 = st.columns(2)
                 with c1:
                     st.markdown(f"**Album 1 :** `{p.album_1.name}`")
