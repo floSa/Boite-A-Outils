@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+import shutil
 import tempfile
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable
 
@@ -34,7 +35,9 @@ def info_flac(path: str | Path) -> InfoFlac:
     )
 
 
-def besoin_normalisation(info: InfoFlac, sr_max: int = 44100, bits_max: int = 16) -> bool:
+def besoin_normalisation(
+    info: InfoFlac, sr_max: int = 44100, bits_max: int = 16
+) -> bool:
     return info.sample_rate > sr_max or info.bits > bits_max
 
 
@@ -48,11 +51,16 @@ def normaliser_flac(
         sortie = Path(tmp) / src.name
         lancer_ffmpeg(
             [
-                "-i", str(src),
-                "-sample_fmt", fmt,
-                "-ar", str(sr_cible),
-                "-map_metadata", "0",
-                "-c:a", "flac",
+                "-i",
+                str(src),
+                "-sample_fmt",
+                fmt,
+                "-ar",
+                str(sr_cible),
+                "-map_metadata",
+                "0",
+                "-c:a",
+                "flac",
                 str(sortie),
             ]
         )
@@ -78,7 +86,9 @@ def normaliser_dossier(
         info = info_flac(f)
         if besoin_normalisation(info, sr_max, bits_max):
             if log:
-                log(f"Normalisation : {f.name} ({info.sample_rate} Hz / {info.bits} bit)")
+                log(
+                    f"Normalisation : {f.name} ({info.sample_rate} Hz / {info.bits} bit)"
+                )
             normaliser_flac(f, sr_cible=sr_max, bits_cible=bits_max)
             traites.append(f)
     return traites
@@ -95,14 +105,18 @@ CODECS_AUDIO = {
 
 
 def extraire_audio(
-    video_path: str | Path, format_sortie: str = "flac", dossier_sortie: str | Path | None = None
+    video_path: str | Path,
+    format_sortie: str = "flac",
+    dossier_sortie: str | Path | None = None,
 ) -> Path:
     """Extrait la piste audio d'une vidéo vers un fichier audio (sans ré-encoder la vidéo)."""
     src = Path(video_path)
     if not src.is_file():
         raise FileNotFoundError(f"Vidéo introuvable : {src}")
     if format_sortie not in CODECS_AUDIO:
-        raise ValueError(f"Format non géré : {format_sortie} (choix : {', '.join(CODECS_AUDIO)})")
+        raise ValueError(
+            f"Format non géré : {format_sortie} (choix : {', '.join(CODECS_AUDIO)})"
+        )
 
     dossier = Path(dossier_sortie) if dossier_sortie else src.parent
     dossier.mkdir(parents=True, exist_ok=True)
@@ -182,6 +196,7 @@ def previsualiser_renommage_tags(
 
 # --- A4 : convertir un format audio ------------------------------------------
 
+
 def convertir_audio(
     src: str | Path,
     format_sortie: str,
@@ -198,7 +213,9 @@ def convertir_audio(
     if not source.is_file():
         raise FileNotFoundError(f"Fichier introuvable : {source}")
     if format_sortie not in CODECS_AUDIO:
-        raise ValueError(f"Format non géré : {format_sortie} (choix : {', '.join(CODECS_AUDIO)})")
+        raise ValueError(
+            f"Format non géré : {format_sortie} (choix : {', '.join(CODECS_AUDIO)})"
+        )
 
     dossier = Path(dossier_sortie) if dossier_sortie else source.parent
     dossier.mkdir(parents=True, exist_ok=True)
@@ -216,6 +233,7 @@ def convertir_audio(
 
 # --- A5 : découper un passage audio ------------------------------------------
 
+
 def decouper_audio(
     src: str | Path, debut: str, fin: str, sortie: str | Path | None = None
 ) -> Path:
@@ -223,9 +241,23 @@ def decouper_audio(
     source = Path(src)
     if not source.is_file():
         raise FileNotFoundError(f"Fichier introuvable : {source}")
-    cible = Path(sortie) if sortie else source.with_name(f"{source.stem}_extrait{source.suffix}")
+    cible = (
+        Path(sortie)
+        if sortie
+        else source.with_name(f"{source.stem}_extrait{source.suffix}")
+    )
     lancer_ffmpeg(
-        ["-ss", str(debut), "-to", str(fin), "-i", str(source), "-c", "copy", str(cible)]
+        [
+            "-ss",
+            str(debut),
+            "-to",
+            str(fin),
+            "-i",
+            str(source),
+            "-c",
+            "copy",
+            str(cible),
+        ]
     )
     return cible
 
@@ -269,6 +301,7 @@ def editer_tags(
 
 # --- A7 : normaliser le volume (loudness) ------------------------------------
 
+
 def normaliser_volume(
     src: str | Path, *, cible_lufs: float = -14.0, sortie: str | Path | None = None
 ) -> Path:
@@ -276,13 +309,138 @@ def normaliser_volume(
     source = Path(src)
     if not source.is_file():
         raise FileNotFoundError(f"Fichier introuvable : {source}")
-    cible = Path(sortie) if sortie else source.with_name(f"{source.stem}_norm{source.suffix}")
+    cible = (
+        Path(sortie)
+        if sortie
+        else source.with_name(f"{source.stem}_norm{source.suffix}")
+    )
     lancer_ffmpeg(
         [
-            "-i", str(source),
-            "-af", f"loudnorm=I={cible_lufs}:TP=-1.5:LRA=11",
-            "-map_metadata", "0",
+            "-i",
+            str(source),
+            "-af",
+            f"loudnorm=I={cible_lufs}:TP=-1.5:LRA=11",
+            "-map_metadata",
+            "0",
             str(cible),
         ]
     )
     return cible
+
+
+# --- A8 : convertir en FLAC (remplacement) -----------------------------------
+
+EXT_AUDIO_NON_FLAC = (
+    ".mp3",
+    ".m4a",
+    ".wav",
+    ".ogg",
+    ".opus",
+    ".wma",
+    ".aac",
+    ".aiff",
+    ".alac",
+)
+
+
+def inventaire_non_flac(
+    dossier: str | Path,
+    *,
+    recursif: bool = True,
+    extensions: tuple[str, ...] | None = None,
+) -> list[Path]:
+    """Dresse l'inventaire des fichiers audio non-FLAC d'un dossier.
+
+    :param dossier: chemin du dossier à analyser.
+    :param recursif: descend dans les sous-dossiers si vrai.
+    :param extensions: extensions ciblées (défaut : EXT_AUDIO_NON_FLAC).
+    :return: liste triée des chemins de fichiers trouvés.
+    """
+    base = Path(dossier)
+    if not base.is_dir():
+        raise NotADirectoryError(f"Dossier introuvable : {base}")
+
+    exts = tuple(e.lower() for e in (extensions or EXT_AUDIO_NON_FLAC))
+    fichiers = base.rglob("*") if recursif else base.iterdir()
+    candidats: list[Path] = []
+    for f in fichiers:
+        if f.is_file() and not f.name.startswith((".", "_")):
+            if f.suffix.lower() in exts:
+                candidats.append(f)
+    return sorted(candidats)
+
+
+def convertir_en_flac(src: str | Path, *, remplacer: bool = True) -> Path:
+    """Convertit un fichier audio vers le format FLAC avec conservation des métadonnées.
+
+    Si ``remplacer`` est vrai, le fichier source d'origine est supprimé après confirmation
+    de la conversion sans erreur.
+
+    :param src: fichier audio à convertir.
+    :param remplacer: remplace le fichier source par le FLAC obtenu.
+    :return: chemin du fichier FLAC produit.
+    """
+    source = Path(src)
+    if not source.is_file():
+        raise FileNotFoundError(f"Fichier introuvable : {source}")
+    cible = source.with_suffix(".flac")
+    if source.resolve() == cible.resolve():
+        return source
+
+    with tempfile.TemporaryDirectory() as tmp:
+        sortie_tmp = Path(tmp) / cible.name
+        lancer_ffmpeg(
+            [
+                "-i",
+                str(source),
+                "-map_metadata",
+                "0",
+                "-c:a",
+                "flac",
+                str(sortie_tmp),
+            ]
+        )
+        if not sortie_tmp.is_file() or sortie_tmp.stat().st_size == 0:
+            raise RuntimeError(f"Échec de la conversion en FLAC : {source}")
+        shutil.move(str(sortie_tmp), str(cible))
+        if remplacer and source.exists() and source.resolve() != cible.resolve():
+            source.unlink()
+    return cible
+
+
+@dataclass
+class ResultatConversionFlac:
+    convertis: list[tuple[Path, Path]] = field(default_factory=list)
+    erreurs: list[tuple[Path, str]] = field(default_factory=list)
+
+
+def convertir_dossier_flac(
+    fichiers: list[Path],
+    *,
+    remplacer: bool = True,
+    log: Callable[[str], None] | None = None,
+) -> ResultatConversionFlac:
+    """Convertit une série de fichiers audio en FLAC.
+
+    :param fichiers: liste des chemins à convertir.
+    :param remplacer: remplace les fichiers d'origine par le FLAC.
+    :param log: fonction de suivi / callback d'affichage.
+    :return: objet ResultatConversionFlac avec les réussites et erreurs.
+    """
+    resultat = ResultatConversionFlac()
+    for f in fichiers:
+        try:
+            if log:
+                try:
+                    log(f"Conversion : {f.name}")
+                except UnicodeEncodeError:
+                    log(
+                        f"Conversion : {f.name.encode('ascii', 'replace').decode('ascii')}"
+                    )
+            dst = convertir_en_flac(f, remplacer=remplacer)
+            resultat.convertis.append((f, dst))
+        except Exception as e:
+            if log:
+                log(f"Erreur sur {f.name} : {e}")
+            resultat.erreurs.append((f, str(e)))
+    return resultat

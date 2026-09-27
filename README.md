@@ -43,11 +43,11 @@ uv run streamlit run app.py
 
 ## Outils
 
-48 outils, répartis en 9 catégories (calées sur la navigation de `app.py`).
+49 outils, répartis en 9 catégories (calées sur la navigation de `app.py`).
 
 | Catégorie | Outils |
 |---|---|
-| 🎵 Audio | **Normaliser des FLAC** — corrige le gain audio<br>**Convertir un format** — bascule entre formats audio<br>**Extraire l'audio d'une vidéo** — isole la piste audio<br>**Découper** — extrait un segment audio<br>**Normaliser le volume** — égalise le niveau sonore<br>**Renommer depuis les tags** — noms de fichiers ← métadonnées<br>**Éditer les tags en masse** — modifie ID3/Vorbis en lot |
+| 🎵 Audio | **Convertir en FLAC** — inventorie les fichiers non-FLAC et les convertit (remplace les originaux)<br>**Normaliser des FLAC** — corrige le gain audio<br>**Convertir un format** — bascule entre formats audio<br>**Extraire l'audio d'une vidéo** — isole la piste audio<br>**Découper** — extrait un segment audio<br>**Normaliser le volume** — égalise le niveau sonore<br>**Renommer depuis les tags** — noms de fichiers ← métadonnées<br>**Éditer les tags en masse** — modifie ID3/Vorbis en lot |
 | 🖼️ Images | **Redimensionner / compresser** — réduit taille et poids<br>**Convertir de format** — bascule entre formats (dont HEIC)<br>**Trouver les doublons** — détecte images identiques/similaires<br>**Renuméroter** — renomme en séquence numérotée<br>**Organiser les fonds d'écran** — déduplique (vers `Doublons/`), apparie paysage ↔ portrait et numérote en continu<br>**Filigrane** — incruste un marquage texte |
 | 🎬 Vidéo | **Télécharger depuis le web** — récupère des vidéos en ligne (YouTube, Facebook, Dailymotion, Instagram...)<br>**Fusionner** — assemble plusieurs vidéos<br>**Découper** — extrait un segment vidéo<br>**Compresser** — réduit le poids vidéo<br>**Convertir** — bascule entre formats vidéo<br>**Extraire des images** — capture des images fixes<br>**Créer un GIF** — convertit un extrait en GIF |
 | 📄 PDF | **Extraire des pages** — isole certaines pages<br>**Fusionner** — assemble plusieurs PDF<br>**Supprimer / pivoter des pages** — édite la structure du PDF<br>**Images ↔ PDF** — convertit dans les deux sens<br>**Compresser** — réduit le poids du PDF<br>**Protéger / déprotéger** — gère le mot de passe<br>**Extraire le texte** — récupère le texte du PDF<br>**Filigrane** — incruste un marquage texte |

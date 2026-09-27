@@ -16,6 +16,7 @@ accueil = st.Page("pages/accueil.py", title="Accueil", icon="🏠", default=True
 
 sections = {
     "🎵 Audio": [
+        page("audio_flac.py", "Convertir en FLAC", "💿"),
         page("audio_normaliser.py", "Normaliser des FLAC", "🎚️"),
         page("audio_convertir.py", "Convertir un format", "🔁"),
         page("audio_extraire.py", "Extraire l'audio d'une vidéo", "🎵"),
