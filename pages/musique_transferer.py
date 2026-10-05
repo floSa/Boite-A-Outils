@@ -11,85 +11,97 @@ from ui import champ_dossier
 st.title("🚚 Transférer vers la bibliothèque")
 st.caption(
     "Transfère un ou plusieurs dossiers sources structurés en `Artiste / Album` vers une "
-    "bibliothèque unique via **Robocopy** (Ctrl+C Ctrl+V rapide avec horodatages), puis supprime "
-    "les dossiers sources une fois le transfert validé. Un journal de retour en arrière est téléchargeable."
+    "bibliothèque unique via **Robocopy**, puis supprime les dossiers sources une fois le "
+    "transfert validé. Un journal de retour en arrière est téléchargeable à la fin."
 )
 
-st.markdown("#### 1. Bibliothèque de destination")
-destination = champ_dossier(
-    "Dossier final de destination",
-    "musique_transferer_dest",
-    valeur_defaut="M:/musiques/__autres",
-)
-
-st.divider()
-st.markdown("#### 2. Dossiers sources à transférer")
-
-# Gestion dynamique de la liste des dossiers sources
+# Initialisation de la liste des dossiers sources
 if "transfert_sources_liste" not in st.session_state:
     st.session_state["transfert_sources_liste"] = []
 
-# Saisie par zone multi-lignes ou ajout unitaire
-onglet_multi, onglet_unitaire = st.tabs(["Coller plusieurs chemins", "Ajouter un dossier"])
+# =============================================================================
+# 1. Dossiers sources à transférer (EN PREMIER)
+# =============================================================================
+st.markdown("### 1. Dossiers sources à transférer")
+st.caption("Faites **Parcourir** pour choisir un dossier, puis cliquez sur **Ajouter ce dossier** pour l'insérer dans le tableau.")
 
-with onglet_multi:
-    texte_chemins = st.text_area(
-        "Chemins des dossiers sources (un chemin par ligne)",
-        placeholder="C:/Users/.../Dossier1\nC:/Users/.../Dossier2",
-        help="Colle ici un ou plusieurs chemins complets vers des dossiers construits en Artiste / Album.",
-    )
-    if st.button("Charger les chemins collés"):
-        lignes = [
-            ligne.strip().strip('"').strip("'")
-            for ligne in texte_chemins.splitlines()
-            if ligne.strip()
-        ]
-        for l in lignes:
-            if l not in st.session_state["transfert_sources_liste"]:
-                st.session_state["transfert_sources_liste"].append(l)
-        st.rerun()
-
-with onglet_unitaire:
+col_sel, col_btn = st.columns([4, 1.5], vertical_alignment="bottom")
+with col_sel:
     nouveau_dossier = champ_dossier(
         "Sélectionner un dossier source",
         "transfert_nouveau_dossier",
         placeholder="C:/Users/.../MonDossier",
     )
-    if st.button("➕ Ajouter ce dossier"):
-        if nouveau_dossier and nouveau_dossier not in st.session_state["transfert_sources_liste"]:
-            st.session_state["transfert_sources_liste"].append(nouveau_dossier)
-            st.rerun()
+with col_btn:
+    if st.button("➕ Ajouter ce dossier", use_container_width=True):
+        dossier_propre = nouveau_dossier.strip() if nouveau_dossier else ""
+        if dossier_propre:
+            if dossier_propre not in st.session_state["transfert_sources_liste"]:
+                st.session_state["transfert_sources_liste"].append(dossier_propre)
+                st.session_state.pop("transfert_plan", None)
+                st.rerun()
+            else:
+                st.warning("Ce dossier est déjà dans la liste.")
+        else:
+            st.warning("Veuillez d'abord sélectionner ou indiquer un dossier.")
 
-# Affichage des dossiers actuellement sélectionnés
+# Tableau de visualisation des dossiers sélectionnés
 sources_actuelles = st.session_state["transfert_sources_liste"]
 
-if not sources_actuelles:
-    st.info("Aucun dossier source sélectionné pour le moment.")
-    st.stop()
+if sources_actuelles:
+    st.markdown(f"##### 📋 Liste des {len(sources_actuelles)} dossier(s) sélectionné(s) :")
+    tableau_visu = [
+        {"N°": i + 1, "Dossier source": src}
+        for i, src in enumerate(sources_actuelles)
+    ]
+    st.dataframe(tableau_visu, use_container_width=True, hide_index=True)
 
-st.markdown(f"**{len(sources_actuelles)} dossier(s) source(s) sélectionné(s) :**")
-a_supprimer = None
-for i, src in enumerate(sources_actuelles):
-    c1, c2 = st.columns([5, 1])
-    c1.code(src, language="text")
-    if c2.button("Retirer", key=f"del_src_{i}"):
-        a_supprimer = i
-
-if a_supprimer is not None:
-    st.session_state["transfert_sources_liste"].pop(a_supprimer)
-    st.session_state.pop("transfert_plan", None)
-    st.rerun()
-
-if st.button("Vider toute la liste"):
-    st.session_state["transfert_sources_liste"] = []
-    st.session_state.pop("transfert_plan", None)
-    st.rerun()
+    col_retrait, col_vider = st.columns([3, 1])
+    with col_retrait:
+        dossier_a_retirer = st.selectbox(
+            "Retirer un dossier de la liste",
+            options=["— Choisir un dossier à retirer —"] + sources_actuelles,
+            index=0,
+            label_visibility="collapsed",
+        )
+        if dossier_a_retirer != "— Choisir un dossier à retirer —":
+            if st.button(f"🗑️ Retirer de la liste"):
+                st.session_state["transfert_sources_liste"].remove(dossier_a_retirer)
+                st.session_state.pop("transfert_plan", None)
+                st.rerun()
+    with col_vider:
+        if st.button("Tout vider", use_container_width=True):
+            st.session_state["transfert_sources_liste"] = []
+            st.session_state.pop("transfert_plan", None)
+            st.rerun()
+else:
+    st.info("Aucun dossier sélectionné. Choisissez un dossier ci-dessus et cliquez sur « Ajouter ce dossier ».")
 
 st.divider()
-st.markdown("#### 3. Contrôle de conformité et Prévisualisation")
+
+# =============================================================================
+# 2. Dossier de destination (EN DEUXIÈME)
+# =============================================================================
+st.markdown("### 2. Dossier de destination")
+destination = champ_dossier(
+    "Dossier final de destination (bibliothèque principale)",
+    "musique_transferer_dest",
+    valeur_defaut="M:/musiques/__autres",
+)
+
+st.divider()
+
+# =============================================================================
+# 3. Contrôle de conformité et Prévisualisation
+# =============================================================================
+st.markdown("### 3. Contrôle de conformité et Prévisualisation")
+
+if not sources_actuelles:
+    st.info("Ajoutez au moins un dossier source à l'étape 1 pour lancer le contrôle.")
+    st.stop()
 
 if not destination:
-    st.warning("Veuillez renseigner un dossier de destination.")
+    st.warning("Veuillez renseigner le dossier de destination à l'étape 2.")
     st.stop()
 
 dest_path = Path(destination)
@@ -108,8 +120,6 @@ if not plan:
 
 # Affichage du bilan de chaque dossier source
 lignes_statuts = []
-tous_valides = True
-
 for s in plan.sources:
     if s.est_valide:
         statut_str = "✅ Conforme (Artiste / Album)"
@@ -126,7 +136,6 @@ for s in plan.sources:
             }
         )
     else:
-        tous_valides = False
         lignes_statuts.append(
             {
                 "Dossier source": str(s.chemin),
@@ -140,7 +149,7 @@ for s in plan.sources:
 
 st.dataframe(lignes_statuts, use_container_width=True)
 
-# Affichage des anomalies éventuelles
+# Affichage des anomalies si des dossiers sont non conformes
 sources_invalides = [s for s in plan.sources if not s.est_valide]
 if sources_invalides:
     st.error(
@@ -167,7 +176,11 @@ if plan.collisions:
     )
 
 st.divider()
-st.markdown("#### 4. Exécution du transfert Robocopy")
+
+# =============================================================================
+# 4. Exécution du transfert Robocopy
+# =============================================================================
+st.markdown("### 4. Exécution du transfert Robocopy")
 
 st.warning(
     "⚠️ **Action irréversible sur les dossiers sources :** Robocopy va copier l'ensemble des fichiers "
