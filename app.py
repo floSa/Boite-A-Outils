@@ -73,6 +73,7 @@ sections = {
         page("transcription_transcrire.py", "Transcrire un audio / une vidéo", "🎙️"),
     ],
     "🎼 Bibliothèque perso": [
+        page("musique_transferer.py", "Transférer vers la bibliothèque", "🚚"),
         page("musique_regrouper.py", "Regrouper les albums", "🧩"),
         page("musique_doublons.py", "Supprimer les doublons", "👯"),
         page("musique_singles.py", "Regrouper les singles", "🎼"),
