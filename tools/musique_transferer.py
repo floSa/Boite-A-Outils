@@ -163,20 +163,37 @@ def valider_structure_source(dossier: str | Path) -> DossierSourceStatut:
         if not albums_artiste:
             anomalies.append(f"L'artiste '{artiste.name}' ne contient aucun dossier d'album.")
 
-        nb_albums += len(albums_artiste)
-
-        # Calculer le nombre de fichiers et la taille totale
+        # Calculer le nombre de fichiers et la taille totale, et détecter/nettoyer les albums vides
+        albums_valides: list[Path] = []
         for alb in albums_artiste:
+            # Vérifier si l'album contient des fichiers audio ou utiles
+            fichiers_alb = []
             for root, _dirs, files in os.walk(alb):
                 for f in files:
-                    if f.lower() in FICHIERS_JUNK:
+                    if f.lower() in FICHIERS_JUNK or f.startswith((".", "_")):
                         continue
-                    p = Path(root) / f
-                    nb_fichiers += 1
-                    try:
-                        taille_totale += p.stat().st_size
-                    except OSError:
-                        pass
+                    fichiers_alb.append(Path(root) / f)
+
+            if not fichiers_alb:
+                # Album totalement vide (ou uniquement junk) : le supprimer pour ne pas transférer de dossiers vides
+                try:
+                    shutil.rmtree(alb)
+                except OSError:
+                    pass
+                continue
+
+            albums_valides.append(alb)
+            for p in fichiers_alb:
+                nb_fichiers += 1
+                try:
+                    taille_totale += p.stat().st_size
+                except OSError:
+                    pass
+
+        if not albums_valides:
+            anomalies.append(f"L'artiste '{artiste.name}' ne contient aucun album avec du contenu audio.")
+
+        nb_albums += len(albums_valides)
 
     est_valide = len(anomalies) == 0 and len(artistes) > 0
 
@@ -289,12 +306,12 @@ def executer_transfert_robocopy(
         _log(f"📦 Début du transfert de : {src} vers {plan.destination}")
 
         if a_robocopy:
-            # Commande robocopy : copie récursive avec horodatages, silencieuse, sans retries infinis
+            # Commande robocopy : copie récursive avec fichiers, sans copier les sous-dossiers vides (/S), avec horodatages
             cmd = [
                 "robocopy",
                 str(src),
                 str(plan.destination),
-                "/E",
+                "/S",
                 "/COPY:DAT",
                 "/DCOPY:DAT",
                 "/R:2",

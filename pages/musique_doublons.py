@@ -5,8 +5,8 @@ import streamlit as st
 
 from tools.musique_doublons import (
     NOM_CORBEILLE_DOUBLONS,
-    NOM_JOURNAL_DOUBLONS,
     annuler,
+    chemin_journal_doublons,
     detecter_albums_similaires,
     detecter_pistes_en_double,
     detecter_singles_en_album,
@@ -260,7 +260,7 @@ with tab3:
 # =============================================================================
 # Annulation
 # =============================================================================
-chemin_journal = base / NOM_JOURNAL_DOUBLONS
+chemin_journal = chemin_journal_doublons(base)
 if chemin_journal.is_file():
     st.divider()
     if st.button("↩️ Annuler les dernières suppressions de doublons"):

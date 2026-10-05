@@ -4,9 +4,9 @@ import pandas as pd
 import streamlit as st
 
 from tools.clean_library import (
-    NOM_JOURNAL_NETTOYAGE,
     annuler,
     appliquer,
+    chemin_journal_nettoyage,
     previsualiser_nettoyage,
 )
 from ui import champ_dossier
@@ -127,7 +127,7 @@ if plan is not None:
                         st.write(f"- {e}")
             st.session_state.pop("nettoyer_plan", None)
 
-if (base / NOM_JOURNAL_NETTOYAGE).is_file():
+if chemin_journal_nettoyage(base).is_file():
     st.divider()
     if st.button("↩️ Annuler le dernier nettoyage"):
         st.success(f"{annuler(base)} action(s) annulée(s).")

@@ -18,6 +18,8 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from tools.undo_manager import get_chemin_journal
+
 EXT_AUDIO = (
     ".flac",
     ".mp3",
@@ -32,7 +34,11 @@ EXT_AUDIO = (
 )
 NOM_DOSSIER_SINGLES = "Singles"
 NOM_CORBEILLE_DOUBLONS = "_doublons_a_supprimer"
-NOM_JOURNAL_DOUBLONS = ".doublons_undo.json"
+
+
+def chemin_journal_doublons(racine: str | Path) -> Path:
+    """Renvoie le chemin du journal d'annulation stocké côté application."""
+    return get_chemin_journal(racine, "doublons")
 
 _RE_NUM_PISTE = re.compile(r"^\s*(?:\d{1,3}\s*[-.)]\s*|0\d{1,2}\s+)")
 _RE_SUFFIXE_COLLISION = re.compile(r"\s*\(\d+\)$")
@@ -526,7 +532,7 @@ def supprimer_fichiers(
 ) -> int:
     """Supprime ou met en corbeille une liste de fichiers audio doublons."""
     base = Path(racine)
-    journal_path = base / NOM_JOURNAL_DOUBLONS
+    journal_path = chemin_journal_doublons(base)
     journal: list[dict[str, str]] = []
     if journal_path.is_file():
         try:
@@ -548,6 +554,36 @@ def supprimer_fichiers(
                 shutil.rmtree(f)
         nb += 1
 
+        # Si le fichier supprimé rend son dossier d'album vide (hors junk), supprimer l'album vide
+        parent_album = f.parent
+        if parent_album.exists() and parent_album != base:
+            # Nettoyer les fichiers junk résiduels
+            for junk in parent_album.iterdir():
+                if junk.is_file() and junk.name.lower() in ("thumbs.db", ".ds_store", "desktop.ini"):
+                    try:
+                        junk.unlink(missing_ok=True)
+                    except OSError:
+                        pass
+            if not list(parent_album.iterdir()):
+                try:
+                    parent_album.rmdir()
+                except OSError:
+                    pass
+            # Et si l'artiste devient vide à son tour
+            parent_artiste = parent_album.parent
+            if parent_artiste.exists() and parent_artiste != base:
+                for junk in parent_artiste.iterdir():
+                    if junk.is_file() and junk.name.lower() in ("thumbs.db", ".ds_store", "desktop.ini"):
+                        try:
+                            junk.unlink(missing_ok=True)
+                        except OSError:
+                            pass
+                if not list(parent_artiste.iterdir()):
+                    try:
+                        parent_artiste.rmdir()
+                    except OSError:
+                        pass
+
     if corbeille and journal:
         journal_path.write_text(
             json.dumps(journal, ensure_ascii=False, indent=2), encoding="utf-8"
@@ -561,16 +597,30 @@ def supprimer_album(
     *,
     corbeille: bool = True,
 ) -> None:
-    """Supprime ou déplace en corbeille l'intégralité d'un album."""
+    """Supprime ou déplace en corbeille l'intégralité d'un album et nettoie l'artiste parent si vide."""
+    base = Path(racine)
+    parent_artiste = album_path.parent
     supprimer_fichiers([album_path], racine, corbeille=corbeille)
+    if parent_artiste.exists() and parent_artiste != base:
+        for junk in parent_artiste.iterdir():
+            if junk.is_file() and junk.name.lower() in ("thumbs.db", ".ds_store", "desktop.ini"):
+                try:
+                    junk.unlink(missing_ok=True)
+                except OSError:
+                    pass
+        if not list(parent_artiste.iterdir()):
+            try:
+                parent_artiste.rmdir()
+            except OSError:
+                pass
 
 
 def annuler(racine: str | Path) -> int:
     """Restaure les fichiers et dossiers depuis le journal d'annulation."""
     base = Path(racine)
-    journal_path = base / NOM_JOURNAL_DOUBLONS
+    journal_path = chemin_journal_doublons(base)
     if not journal_path.is_file():
-        raise FileNotFoundError(f"Aucun journal d'annulation trouvé dans {racine}")
+        raise FileNotFoundError(f"Aucun journal d'annulation trouvé pour {racine}")
 
     entrees = json.loads(journal_path.read_text(encoding="utf-8"))
     n = 0

@@ -36,6 +36,8 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from tools.undo_manager import get_chemin_journal
+
 EXT_AUDIO = (
     ".flac",
     ".mp3",
@@ -51,12 +53,16 @@ EXT_AUDIO = (
 
 NOM_DOSSIER_SINGLES = "Singles"
 NOM_CORBEILLE_REGROUPER = "_albums_vides_a_supprimer"
-NOM_JOURNAL_REGROUPER = ".regrouper_undo.json"
 NOM_VARIOUS_ARTISTS_DEFAUT = "Various Artists"
 SEUIL_MAJORITAIRE_DEFAUT = 0.20
 FICHIERS_JUNK = {"thumbs.db", ".ds_store", "desktop.ini"}
 
 Progression = Callable[[int, int], None]
+
+
+def chemin_journal_regroupement(racine: str | Path) -> Path:
+    """Renvoie le chemin du journal d'annulation stocké côté application."""
+    return get_chemin_journal(racine, "regrouper")
 
 
 def normaliser_nom_album(nom: str) -> str:
@@ -546,8 +552,8 @@ def appliquer_regroupement(
     lignes_rapport.append("\nOpération terminée.")
     rapport_complet = "\n".join(lignes_rapport)
 
-    # 4. Écriture du journal d'annulation
-    chemin_journal = plan.racine / NOM_JOURNAL_REGROUPER
+    # 4. Écriture du journal d'annulation côté application
+    chemin_journal = chemin_journal_regroupement(plan.racine)
     try:
         chemin_journal.write_text(
             json.dumps(journal, ensure_ascii=False, indent=2), encoding="utf-8"
@@ -573,9 +579,9 @@ def annuler_regroupement(racine: str | Path) -> int:
     :return: Nombre d'actions annulées avec succès.
     """
     base = Path(racine)
-    chemin = base / NOM_JOURNAL_REGROUPER
+    chemin = chemin_journal_regroupement(base)
     if not chemin.is_file():
-        raise FileNotFoundError(f"Aucun journal de regroupement dans {base}")
+        raise FileNotFoundError(f"Aucun journal de regroupement pour {base}")
 
     entrees = json.loads(chemin.read_text(encoding="utf-8"))
     nb_annules = 0

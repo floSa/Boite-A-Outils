@@ -25,9 +25,10 @@ import json
 import os
 import re
 import shutil
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Callable
+from tools.undo_manager import get_chemin_journal
 
 EXT_AUDIO = (
     ".flac",
@@ -46,7 +47,11 @@ EXT_IMAGE = (".jpg", ".jpeg", ".png", ".webp", ".bmp", ".gif", ".tiff")
 FICHIERS_JUNK = {"thumbs.db", ".ds_store", "desktop.ini"}
 NOM_DOSSIER_SINGLES = "Singles"
 NOM_CORBEILLE = "_albums_vides_a_supprimer"
-NOM_JOURNAL = ".singles_undo.json"
+
+
+def chemin_journal_singles(racine: str | Path) -> Path:
+    """Renvoie le chemin du journal d'annulation des singles stocké côté application."""
+    return get_chemin_journal(racine, "singles")
 
 # Numéro de piste en tête : « 01 - », « 01. », « 01) », ou zéro-paddé « 01 », « 02 »…
 _RE_NUM_PISTE = re.compile(r"^\s*(?:\d{1,3}\s*[-.)]\s*|0\d{1,2}\s+)")
@@ -249,20 +254,23 @@ def appliquer(
             continue
         nb_singles += 1
 
-        # Le reste du dossier (images, junk) part en corbeille, tel quel.
-        dest = _nom_libre(
-            corbeille / sa.artiste.name, sa.album.name, reserves_corbeille
-        )
+        # Nettoyage et suppression propre du dossier album vidé (fichiers junk résiduels supprimés)
         try:
-            dest.parent.mkdir(parents=True, exist_ok=True)
-            shutil.move(str(sa.album), str(dest))
-            journal.append({"type": "move", "de": str(dest), "vers": str(sa.album)})
+            for root, _dirs, files in os.walk(sa.album):
+                for f in files:
+                    if f.lower() in FICHIERS_JUNK:
+                        try:
+                            (Path(root) / f).unlink(missing_ok=True)
+                        except OSError:
+                            pass
+            shutil.rmtree(sa.album)
+            journal.append({"type": "rmdir", "path": str(sa.album)})
             nb_corbeille += 1
-            _log(f"✓ {sa.album.name} → {NOM_DOSSIER_SINGLES}/")
+            _log(f"✓ {sa.album.name} (album vidé nettoyé) → {NOM_DOSSIER_SINGLES}/")
         except OSError as e:
-            erreurs.append(f"{sa.album} (mise en corbeille) : {e}")
+            erreurs.append(f"{sa.album} (nettoyage dossier) : {e}")
 
-    chemin = Path(racine) / NOM_JOURNAL
+    chemin = chemin_journal_singles(racine)
     try:
         chemin.write_text(
             json.dumps(journal, ensure_ascii=False, indent=2), encoding="utf-8"
@@ -279,9 +287,9 @@ def appliquer(
 
 def annuler(racine: str | Path) -> int:
     """Restaure l'état précédent depuis le journal. Retourne le nombre d'actions annulées."""
-    chemin = Path(racine) / NOM_JOURNAL
+    chemin = chemin_journal_singles(racine)
     if not chemin.is_file():
-        raise FileNotFoundError(f"Aucun journal d'annulation dans {racine}")
+        raise FileNotFoundError(f"Aucun journal d'annulation pour {racine}")
 
     entrees = json.loads(chemin.read_text(encoding="utf-8"))
     n = 0

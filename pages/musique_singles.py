@@ -4,11 +4,10 @@ import pandas as pd
 import streamlit as st
 
 from tools.musique import (
-    NOM_CORBEILLE,
-    NOM_JOURNAL,
     analyser,
     annuler,
     appliquer,
+    chemin_journal_singles,
     previsualiser,
 )
 from ui import champ_dossier
@@ -102,7 +101,7 @@ if plan.a_traiter:
                     st.write(f"- {e}")
         st.session_state.pop("singles_plan", None)
 
-if (Path(racine) / NOM_JOURNAL).is_file():
+if chemin_journal_singles(racine).is_file():
     st.divider()
     if st.button("↩️ Annuler le dernier regroupement"):
         n = annuler(racine)

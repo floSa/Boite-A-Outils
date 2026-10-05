@@ -4,12 +4,12 @@ import streamlit as st
 
 from tools.musique_regrouper import (
     NOM_CORBEILLE_REGROUPER,
-    NOM_JOURNAL_REGROUPER,
     NOM_VARIOUS_ARTISTS_DEFAUT,
     SEUIL_MAJORITAIRE_DEFAUT,
     analyser_regroupement,
     annuler_regroupement,
     appliquer_regroupement,
+    chemin_journal_regroupement,
 )
 from ui import champ_dossier
 
@@ -175,7 +175,7 @@ if rapport:
     )
 
 st.divider()
-if (base / NOM_JOURNAL_REGROUPER).is_file():
+if chemin_journal_regroupement(base).is_file():
     if st.button("Annuler le dernier regroupement"):
         nb = annuler_regroupement(base)
         st.session_state.pop("regrouper_rapport", None)

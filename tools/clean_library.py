@@ -47,10 +47,15 @@ from pathlib import Path
 Progression = Callable[[int, int], None]
 
 from tools.files import Renommage
+from tools.undo_manager import get_chemin_journal
 
 AUDIO_EXT = {".flac", ".mp3", ".m4a", ".wav", ".ogg", ".opus", ".aiff", ".wma", ".alac"}
-NOM_JOURNAL_NETTOYAGE = ".nettoyage_undo.json"
 NOM_DOSSIER_SINGLES = "Singles"
+
+
+def chemin_journal_nettoyage(racine: str | Path) -> Path:
+    """Renvoie le chemin du journal d'annulation de nettoyage stocké côté application."""
+    return get_chemin_journal(racine, "nettoyage")
 
 # Caractères interdits par le système de fichiers → remplacés par « _ ».
 _CARACTERES_INTERDITS = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
@@ -257,7 +262,7 @@ def appliquer(plan: PlanNettoyage, racine: str | Path) -> ResultatNettoyage:
                 continue
             journal.append({"de": str(cible), "vers": str(r.ancien)})
 
-    chemin = Path(racine) / NOM_JOURNAL_NETTOYAGE
+    chemin = chemin_journal_nettoyage(racine)
     try:
         chemin.write_text(
             json.dumps(journal, ensure_ascii=False, indent=2), encoding="utf-8"
@@ -273,9 +278,9 @@ def annuler(racine: str | Path) -> int:
     Parcours en ordre inverse : les dossiers d'album reviennent à leur nom avant
     les fichiers qu'ils contiennent.
     """
-    chemin = Path(racine) / NOM_JOURNAL_NETTOYAGE
+    chemin = chemin_journal_nettoyage(racine)
     if not chemin.is_file():
-        raise FileNotFoundError(f"Aucun journal de nettoyage dans {racine}")
+        raise FileNotFoundError(f"Aucun journal de nettoyage pour {racine}")
 
     entrees = json.loads(chemin.read_text(encoding="utf-8"))
     n = 0

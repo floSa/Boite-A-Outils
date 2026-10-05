@@ -63,7 +63,6 @@ def test_previsualiser_collision_meme_artiste(tmp_path):
 
 def test_appliquer_titre_et_annexe_images_jetees(tmp_path):
     _biblio(tmp_path)
-    avant = sum(1 for p in tmp_path.rglob("*") if p.is_file())
 
     plan = musique.analyser(tmp_path)
     res = musique.appliquer(plan, tmp_path)
@@ -73,24 +72,23 @@ def test_appliquer_titre_et_annexe_images_jetees(tmp_path):
     assert (singA / "track.flac").is_file()
     assert (singA / "Ring Ring.mp3").is_file()
     assert (singA / "Escapism.flac").is_file()
-    assert (singA / "Escapism.lrc").is_file()      # non-image déplacé + renommé
+    assert (singA / "Escapism.lrc").is_file()  # non-image déplacé + renommé
     # les images NE sont PAS dans Singles
     assert not (singA / "cover.jpg").exists()
     assert not (singA / "Escapism.jpg").exists()
 
-    # images + junk partis en corbeille avec le dossier (pas supprimés)
-    corb = tmp_path / musique.NOM_CORBEILLE
-    assert (corb / "ArtisteA" / "Album1" / "cover.jpg").is_file()
-    assert (corb / "ArtisteA" / "Paroles" / "Cover.jpg").is_file()
+    # Aucun dossier corbeille parasite n'est créé dans la musique
+    assert not (tmp_path / musique.NOM_CORBEILLE).exists()
+    # Les dossiers albums vidés sont supprimés
     assert not (tmp_path / "ArtisteA" / "Album1").exists()
+    assert not (tmp_path / "ArtisteA" / "Paroles").exists()
 
-    # vrai album et « à vérifier » laissés en place
+    # Vrai album et « à vérifier » laissés en place
     assert (tmp_path / "ArtisteA" / "AlbumComplet").is_dir()
     assert (tmp_path / "ArtisteA" / "AvecDossier").is_dir()
 
-    # aucune perte de fichier (+1 = le journal)
-    apres = sum(1 for p in tmp_path.rglob("*") if p.is_file())
-    assert apres == avant + 1
+    # Le journal d'annulation est créé côté application
+    assert res.journal.is_file()
 
 
 def test_annuler_restaure(tmp_path):
@@ -98,8 +96,9 @@ def test_annuler_restaure(tmp_path):
     plan = musique.analyser(tmp_path)
     musique.appliquer(plan, tmp_path)
     musique.annuler(tmp_path)
+    # Les fichiers audio et annexes sont restaurés dans leurs dossiers d'origine
     assert (tmp_path / "ArtisteA" / "Album1" / "track.flac").is_file()
-    assert (tmp_path / "ArtisteA" / "Album1" / "cover.jpg").is_file()
     assert (tmp_path / "ArtisteA" / "Paroles" / "01 Escapism.flac").is_file()
     assert (tmp_path / "ArtisteA" / "Paroles" / "lyrics.lrc").is_file()
-    assert (tmp_path / "ArtisteB" / "AlbumX" / "front.png").is_file()
+    assert (tmp_path / "ArtisteB" / "AlbumX" / "song.flac").is_file()
+
