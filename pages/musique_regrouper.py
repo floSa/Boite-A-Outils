@@ -114,15 +114,12 @@ else:
     for alb in plan.albums:
         for art, nb in alb.repartition.items():
             if art != alb.artiste_cible:
-                nb_deja_presents = alb.repartition.get(alb.artiste_cible, 0)
                 lignes_synthese.append(
                     {
-                        "Album": alb.nom_album_affiche,
-                        "Artiste source (d'où ça part)": art,
-                        "Morceaux déplacés": nb,
-                        "Artiste destination": alb.artiste_cible,
-                        "Dossier destination": f"{alb.artiste_cible}/{alb.dossier_album_cible.name}",
-                        "Total final dans l'album": f"{alb.total_pistes} titres ({nb} ajoutés à {nb_deja_presents})",
+                        "Artiste principal": alb.artiste_cible,
+                        "Nom de l'album": alb.nom_album_affiche,
+                        "Nombre de morceaux déplacés": nb,
+                        "Artiste secondaire": art,
                     }
                 )
     st.dataframe(pd.DataFrame(lignes_synthese), use_container_width=True, hide_index=True)
