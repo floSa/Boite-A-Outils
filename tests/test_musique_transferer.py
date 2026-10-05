@@ -65,9 +65,9 @@ def test_transfert_multi_sources_et_suppression(tmp_path):
     assert (dest / "ArtisteA" / "Album 1" / "01 - Track.flac").is_file()
     assert (dest / "ArtisteB" / "Album 2" / "02 - Track.flac").is_file()
 
-    # Vérification que les sources ont été supprimées
-    assert not src1.exists()
-    assert not src2.exists()
+    # Vérification que les dossiers sources ont été vidés (conservés vides pour futurs ajouts)
+    assert src1.is_dir() and list(src1.iterdir()) == []
+    assert src2.is_dir() and list(src2.iterdir()) == []
 
     # Vérification que le journal en mémoire contient les informations
     assert "ArtisteA" in res.journal_json

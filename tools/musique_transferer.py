@@ -342,13 +342,20 @@ def executer_transfert_robocopy(
                 erreurs.append(f"Erreur de copie pour '{src}' : {e}")
                 continue
 
-        # Vérification et suppression du dossier source après copie réussie
+        # Nettoyage et vidage du dossier source après copie réussie (le dossier racine reste prêt pour futurs ajouts)
         try:
-            shutil.rmtree(src)
+            for item in list(src.iterdir()):
+                if item.is_file():
+                    try:
+                        item.unlink(missing_ok=True)
+                    except OSError:
+                        pass
+                elif item.is_dir():
+                    shutil.rmtree(item, ignore_errors=True)
             sources_traitees.append(src)
-            _log(f"🧹 Dossier source supprimé avec succès : {src}")
+            _log(f"🧹 Dossier source vidé avec succès : {src}")
         except OSError as e:
-            erreurs.append(f"Copie effectuée mais impossible de supprimer le dossier source '{src}' : {e}")
+            erreurs.append(f"Copie effectuée mais impossible de vider le dossier source '{src}' : {e}")
 
     fichiers_traites = [
         f for f in plan.tous_fichiers if any(s in f.source.parents for s in sources_traitees)
