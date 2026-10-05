@@ -110,20 +110,22 @@ else:
         f"**{len(plan.dossiers_sources_a_nettoyer)}** dossier(s) source(s) à vider."
     )
 
-    lignes_albums = []
+    lignes_synthese = []
     for alb in plan.albums:
-        repart_str = ", ".join(f"{art} ({nb})" for art, nb in alb.repartition.items())
-        lignes_albums.append(
-            {
-                "Album": alb.nom_album_affiche,
-                "Répartition actuelle": repart_str,
-                "Total pistes": alb.total_pistes,
-                "Artiste cible": alb.artiste_cible,
-                "Règle appliquée": alb.raison_cible,
-                "Dossier cible": str(alb.dossier_album_cible.relative_to(base)),
-            }
-        )
-    st.dataframe(pd.DataFrame(lignes_albums), use_container_width=True, hide_index=True)
+        for art, nb in alb.repartition.items():
+            if art != alb.artiste_cible:
+                nb_deja_presents = alb.repartition.get(alb.artiste_cible, 0)
+                lignes_synthese.append(
+                    {
+                        "Album": alb.nom_album_affiche,
+                        "Artiste source (d'où ça part)": art,
+                        "Morceaux déplacés": nb,
+                        "Artiste destination": alb.artiste_cible,
+                        "Dossier destination": f"{alb.artiste_cible}/{alb.dossier_album_cible.name}",
+                        "Total final dans l'album": f"{alb.total_pistes} titres ({nb} ajoutés à {nb_deja_presents})",
+                    }
+                )
+    st.dataframe(pd.DataFrame(lignes_synthese), use_container_width=True, hide_index=True)
 
     with st.expander(f"Détail des {len(plan.actions_fichiers)} transferts de fichiers"):
         lignes_transferts = [
