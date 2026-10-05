@@ -366,7 +366,7 @@ def analyser_regroupement(
 def appliquer_regroupement(
     plan: PlanRegroupement,
     *,
-    utiliser_corbeille: bool = True,
+    utiliser_corbeille: bool = False,
     supprimer_artistes_vides: bool = True,
     log: Callable[[str], None] | None = None,
 ) -> ResultatRegroupement:

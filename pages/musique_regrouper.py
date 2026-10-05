@@ -3,7 +3,6 @@ from pathlib import Path
 import streamlit as st
 
 from tools.musique_regrouper import (
-    NOM_CORBEILLE_REGROUPER,
     NOM_VARIOUS_ARTISTS_DEFAUT,
     SEUIL_MAJORITAIRE_DEFAUT,
     analyser_regroupement,
@@ -48,17 +47,10 @@ with col2:
         help="Nom du dossier d'artiste utilisé lorsque les pistes sont trop éparpillées.",
     )
 
-col_opt1, col_opt2 = st.columns(2)
-with col_opt1:
-    corbeille = st.checkbox(
-        f"Déplacer les dossiers vidés vers la corbeille (`{NOM_CORBEILLE_REGROUPER}/`)",
-        value=True,
-    )
-with col_opt2:
-    nettoyer_artistes = st.checkbox(
-        "Supprimer les dossiers artistes qui deviennent totalement vides",
-        value=True,
-    )
+nettoyer_artistes = st.checkbox(
+    "Supprimer les dossiers artistes qui deviennent totalement vides",
+    value=True,
+)
 
 if not racine:
     st.stop()
@@ -92,9 +84,9 @@ if st.button("Analyser", type="primary"):
 plan = st.session_state.get("regrouper_plan")
 if not plan or st.session_state.get("regrouper_racine") != str(base):
     # Proposer l'annulation si un journal existe déjà
-    if (base / NOM_JOURNAL_REGROUPER).is_file():
+    if chemin_journal_regroupement(base).is_file():
         st.divider()
-        st.info("Un journal d'annulation précédent a été détecté dans ce dossier.")
+        st.info("Un journal d'annulation précédent a été détecté.")
         if st.button("Annuler le dernier regroupement"):
             nb = annuler_regroupement(base)
             st.success(f"Opération annulée : {nb} élément(s) restauré(s).")
@@ -136,8 +128,8 @@ else:
 
     st.divider()
     st.warning(
-        "Cette opération déplace les fichiers vers les dossiers cibles et nettoie les dossiers vidés. "
-        "Un journal d'annulation sera créé à la racine.",
+        "Cette opération déplace les fichiers vers les dossiers cibles et supprime proprement les dossiers vidés. "
+        "Un journal d'annulation est conservé côté application.",
         icon="⚠️",
     )
 
@@ -145,7 +137,7 @@ else:
         with st.status("Regroupement en cours…", expanded=True) as status:
             res = appliquer_regroupement(
                 plan,
-                utiliser_corbeille=corbeille,
+                utiliser_corbeille=False,
                 supprimer_artistes_vides=nettoyer_artistes,
                 log=lambda m: st.write(m),
             )
