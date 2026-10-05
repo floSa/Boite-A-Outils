@@ -73,11 +73,11 @@ sections = {
         page("transcription_transcrire.py", "Transcrire un audio / une vidéo", "🎙️"),
     ],
     "🎼 Bibliothèque perso": [
-        page("musique_catalogue.py", "Catalogue de la bibliothèque", "🎵"),
-        page("musique_nettoyer.py", "Uniformiser les noms", "🧼"),
-        page("musique_singles.py", "Regrouper les singles", "🎼"),
-        page("musique_doublons.py", "Supprimer les doublons", "👯"),
         page("musique_regrouper.py", "Regrouper les albums", "🧩"),
+        page("musique_doublons.py", "Supprimer les doublons", "👯"),
+        page("musique_singles.py", "Regrouper les singles", "🎼"),
+        page("musique_nettoyer.py", "Uniformiser les noms", "🧼"),
+        page("musique_catalogue.py", "Catalogue de la bibliothèque", "🎵"),
     ],
     "📚 Bibliothèque municipale": [
         page("biblio_cotes.py", "Trier des cotes", "📇"),
