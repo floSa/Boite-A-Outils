@@ -13,6 +13,7 @@ import json
 import os
 import re
 import shutil
+import stat
 import unicodedata
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -343,6 +344,20 @@ def detecter_pistes_en_double(
 
                 for norm, groupe in par_titre.items():
                     if len(groupe) > 1:
+                        # Si les morceaux ont des numéros de piste distincts et sans collision (2),
+                        # ce sont des mouvements ou parties différents (ex: 07 - Beginning vs 09 - Beginning)
+                        def _num_piste(p: Path) -> str:
+                            m = _RE_NUM_PISTE.match(p.stem)
+                            if m:
+                                digits = re.search(r"\d+", m.group(0))
+                                return str(int(digits.group(0))) if digits else ""
+                            return ""
+
+                        nums = {_num_piste(p) for p in groupe}
+                        a_collision = any(_RE_SUFFIXE_COLLISION.search(p.stem) for p in groupe)
+                        if len(nums) > 1 and "" not in nums and not a_collision:
+                            continue
+
                         # Priorité : FLAC > autre, sans suffixe (2) > avec, plus gros > plus petit
                         def _cle_priorite(p: Path) -> tuple[int, int, int]:
                             est_flac = 1 if p.suffix.lower() == ".flac" else 0
@@ -545,14 +560,21 @@ def supprimer_fichiers(
     for f in chemins:
         if not f.exists():
             continue
-        if corbeille:
-            _deplacer_vers_corbeille(f, base, reserves, journal)
-        else:
-            if f.is_file():
-                f.unlink()
-            elif f.is_dir():
-                shutil.rmtree(f)
-        nb += 1
+        try:
+            if corbeille:
+                _deplacer_vers_corbeille(f, base, reserves, journal)
+            else:
+                if f.is_file():
+                    try:
+                        os.chmod(f, stat.S_IWRITE)
+                    except OSError:
+                        pass
+                    f.unlink()
+                elif f.is_dir():
+                    shutil.rmtree(f, ignore_errors=True)
+            nb += 1
+        except OSError:
+            continue
 
         # Si le fichier supprimé rend son dossier d'album vide (hors junk), supprimer l'album vide
         parent_album = f.parent
