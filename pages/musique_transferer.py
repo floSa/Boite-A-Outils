@@ -54,40 +54,39 @@ with col_aj:
 sources_actuelles = st.session_state["transfert_sources_liste"]
 
 if sources_actuelles:
-    lignes_html = ""
+    lignes_html = []
     for idx, dossier in enumerate(sources_actuelles, start=1):
         p = Path(dossier)
         existe = p.is_dir()
         badge_statut = (
-            "<span style='color: #2e7d32; font-weight: bold;'>✔ Présent</span>"
+            '<span style="background: rgba(46, 125, 50, 0.2); color: #4caf50; padding: 3px 8px; border-radius: 10px; font-weight: 600; font-size: 0.85em;">✔ Présent</span>'
             if existe
-            else "<span style='color: #c62828; font-weight: bold;'>✖ Introuvable</span>"
+            else '<span style="background: rgba(211, 47, 47, 0.2); color: #ef5350; padding: 3px 8px; border-radius: 10px; font-weight: 600; font-size: 0.85em;">✖ Introuvable</span>'
         )
-        lignes_html += f"""
-        <tr style="border-bottom: 1px solid #e0e0e0;">
-            <td style="padding: 10px 12px; font-weight: bold; width: 50px; text-align: center;">{idx}</td>
-            <td style="padding: 10px 12px; font-family: monospace; font-size: 0.95em;">{dossier}</td>
-            <td style="padding: 10px 12px; text-align: center; width: 120px;">{badge_statut}</td>
-        </tr>
-        """
+        lignes_html.append(
+            f'<tr style="border-bottom: 1px solid rgba(128, 128, 128, 0.2);">'
+            f'<td style="padding: 10px 12px; font-weight: bold; width: 50px; text-align: center;">{idx}</td>'
+            f'<td style="padding: 10px 12px; font-family: monospace; font-size: 0.95em; word-break: break-all;">{dossier}</td>'
+            f'<td style="padding: 10px 12px; text-align: center; width: 130px;">{badge_statut}</td>'
+            f'</tr>'
+        )
 
-    tableau_html = f"""
-    <div style="margin: 15px 0 20px 0; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
-        <table style="width: 100%; border-collapse: collapse; text-align: left;">
-            <thead>
-                <tr style="background-color: #f5f5f5; border-bottom: 2px solid #ccc;">
-                    <th style="padding: 10px 12px; width: 50px; text-align: center;">#</th>
-                    <th style="padding: 10px 12px;">Dossier source</th>
-                    <th style="padding: 10px 12px; width: 120px; text-align: center;">État</th>
-                </tr>
-            </thead>
-            <tbody>
-                {lignes_html}
-            </tbody>
-        </table>
-    </div>
-    """
-    st.markdown(tableau_html, unsafe_allow_html=True)
+    corps_lignes = "".join(lignes_html)
+    tableau_html = (
+        '<div style="margin: 15px 0 20px 0; border: 1px solid rgba(128, 128, 128, 0.3); border-radius: 8px; overflow: hidden;">'
+        '<table style="width: 100%; border-collapse: collapse; text-align: left;">'
+        '<thead>'
+        '<tr style="background-color: rgba(128, 128, 128, 0.15); border-bottom: 2px solid rgba(128, 128, 128, 0.3);">'
+        '<th style="padding: 10px 12px; width: 50px; text-align: center;">#</th>'
+        '<th style="padding: 10px 12px;">Dossier source</th>'
+        '<th style="padding: 10px 12px; width: 130px; text-align: center;">État</th>'
+        '</tr>'
+        '</thead>'
+        f'<tbody>{corps_lignes}</tbody>'
+        '</table>'
+        '</div>'
+    )
+    st.html(tableau_html)
 
     col_retrait, col_vider = st.columns([3, 1], vertical_alignment="center")
     with col_retrait:
