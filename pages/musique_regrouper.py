@@ -25,7 +25,7 @@ st.caption(
 racine = champ_dossier(
     "Racine de la bibliothèque",
     "musique_regrouper_racine",
-    valeur_defaut="M:/musiques/__autres",
+    valeur_defaut="C:/Users/FLORIAN/Music/Deezy",
 )
 
 col1, col2 = st.columns(2)
