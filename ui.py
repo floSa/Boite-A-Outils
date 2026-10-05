@@ -56,13 +56,18 @@ class ErreurDialogue(RuntimeError):
 @functools.lru_cache(maxsize=1)
 def _sous_wsl() -> bool:
     """Vrai si l'app tourne sous WSL avec PowerShell accessible."""
+    if sys.platform == "win32" or os.name == "nt":
+        return False
     try:
         noyau = Path("/proc/version").read_text(encoding="utf-8").lower()
     except OSError:
         return False
     if "microsoft" not in noyau:
         return False
-    return Path("/mnt/c/WINDOWS/System32/WindowsPowerShell/v1.0/powershell.exe").is_file()
+    try:
+        return Path("/mnt/c/WINDOWS/System32/WindowsPowerShell/v1.0/powershell.exe").is_file()
+    except OSError:
+        return False
 
 
 def _convertir_chemin(chemin: str, vers: str) -> str:

@@ -1,6 +1,5 @@
 from pathlib import Path
 
-import pandas as pd
 import streamlit as st
 
 from tools.musique_transferer import (
@@ -139,7 +138,7 @@ for s in plan.sources:
             }
         )
 
-st.dataframe(pd.DataFrame(lignes_statuts), use_container_width=True, hide_index=True)
+st.dataframe(lignes_statuts, use_container_width=True)
 
 # Affichage des anomalies éventuelles
 sources_invalides = [s for s in plan.sources if not s.est_valide]

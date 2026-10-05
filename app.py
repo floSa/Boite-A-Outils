@@ -3,7 +3,15 @@
 Lancer avec :  uv run streamlit run app.py
 """
 
+import os
+from pathlib import Path
+
 import streamlit as st
+
+# Assurer l'accès aux DLLs système et de l'environnement virtuel sous Windows
+_dossier_venv = Path(__file__).resolve().parent / ".venv" / "Scripts"
+if _dossier_venv.is_dir() and str(_dossier_venv) not in os.environ.get("PATH", ""):
+    os.environ["PATH"] = str(_dossier_venv) + os.pathsep + os.environ.get("PATH", "")
 
 st.set_page_config(page_title="Boîte à outils", page_icon="🧰", layout="wide")
 

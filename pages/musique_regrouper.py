@@ -1,6 +1,5 @@
 from pathlib import Path
 
-import pandas as pd
 import streamlit as st
 
 from tools.musique_regrouper import (
@@ -122,7 +121,7 @@ else:
                         "Artiste secondaire": art,
                     }
                 )
-    st.dataframe(pd.DataFrame(lignes_synthese), use_container_width=True, hide_index=True)
+    st.dataframe(lignes_synthese, use_container_width=True)
 
     with st.expander(f"Détail des {len(plan.actions_fichiers)} transferts de fichiers"):
         lignes_transferts = [
@@ -133,7 +132,7 @@ else:
             }
             for act in plan.actions_fichiers
         ]
-        st.dataframe(pd.DataFrame(lignes_transferts), use_container_width=True, hide_index=True)
+        st.dataframe(lignes_transferts, use_container_width=True)
 
     st.divider()
     st.warning(
