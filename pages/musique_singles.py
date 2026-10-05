@@ -16,8 +16,8 @@ st.title("🎼 Regrouper les singles")
 st.caption(
     "Parcourt une bibliothèque (racine → artistes → albums) et regroupe chaque album "
     "à un seul titre dans un dossier `Singles/` par artiste (numéro de piste retiré, "
-    "pochettes déplacées). Le dossier vidé n'est **pas supprimé** : il part dans "
-    f"`{NOM_CORBEILLE}/`, à supprimer d'un clic ensuite. Rien n'est perdu."
+    "pochettes nettoyées). Les dossiers d'albums vidés sont supprimés proprement sans polluer "
+    "la bibliothèque. Un journal d'annulation est conservé côté application."
 )
 
 st.info(
@@ -83,8 +83,8 @@ if plan.a_verifier:
 st.divider()
 if plan.a_traiter:
     st.warning(
-        "L'opération **déplace** les fichiers. Aucun fichier n'est supprimé : les "
-        f"dossiers vidés partent dans `{NOM_CORBEILLE}/`. Un journal d'annulation est créé.",
+        "L'opération déplace les fichiers vers `Singles/` et supprime proprement les "
+        "dossiers vidés. Un journal d'annulation est conservé côté application.",
         icon="⚠️",
     )
     if st.button(f"Regrouper {len(plan.a_traiter)} single(s)", type="primary"):

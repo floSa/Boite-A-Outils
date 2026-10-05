@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import base64
 import functools
+import os
 import re
 import subprocess
 import sys
@@ -41,7 +42,7 @@ FILETYPES_TABLEAU = [
     ("Tous les fichiers", "*.*"),
 ]
 
-_MOTIF_CHEMIN_WINDOWS = re.compile(r"^[A-Za-z]:[\\/]")
+_MOTIF_CHEMIN_WINDOWS = re.compile(r"^([A-Za-z]:[\\/]|//|\\\\)")
 
 
 class ErreurDialogue(RuntimeError):
@@ -90,24 +91,29 @@ def _convertir_chemin(chemin: str, vers: str) -> str:
 def _repli_mnt(chemin_windows: str) -> str:
     """Repli manuel `X:\\a\\b` → `/mnt/x/a/b` quand `wslpath` échoue.
 
-    `wslpath` ne connaît pas les lecteurs réseau mappés (ex. M: → une part SMB) :
-    il renvoie une erreur et laisse le chemin Windows tel quel, inutilisable sous
-    Linux. On applique alors la convention d'auto-montage de WSL. Le dossier
-    `/mnt/<lettre>` doit exister (part réseau montée) pour que le chemin s'ouvre.
+    `wslpath` ne connaît pas les lecteurs réseau mappés (ex. M: → une part SMB,
+    ou W: → racine WSL) : on teste d'abord si le chemin correspond directement
+    à un dossier WSL existant (ex: W:\\home\\... -> /home/...), sinon on applique
+    la convention d'auto-montage de WSL (/mnt/<lettre>/...).
     """
     m = re.match(r"^([A-Za-z]):[\\/](.*)$", chemin_windows)
     if not m:
         return chemin_windows
     lettre, reste = m.group(1).lower(), m.group(2).replace("\\", "/")
+    # Si le lecteur pointe directement vers la racine WSL (ex. W:\home\... -> /home/...)
+    if reste:
+        candidat_racine = f"/{reste}"
+        if Path(candidat_racine).exists():
+            return candidat_racine
     return f"/mnt/{lettre}/{reste}" if reste else f"/mnt/{lettre}"
 
 
 def normaliser(chemin: str) -> str:
-    """Ramène un chemin Windows (`C:/...`) vers son équivalent WSL (`/mnt/c/...`)."""
+    """Ramène un chemin Windows (`C:/...`, `W:/...`, `\\\\wsl.localhost\\...`) vers son équivalent WSL."""
     chemin = (chemin or "").strip()
     if chemin and _sous_wsl() and _MOTIF_CHEMIN_WINDOWS.match(chemin):
         converti = _convertir_chemin(chemin.replace("/", "\\"), "-u")
-        # wslpath a échoué (lecteur réseau non reconnu) → repli /mnt/<lettre>.
+        # wslpath a échoué (lecteur réseau non reconnu) → repli intelligent.
         if _MOTIF_CHEMIN_WINDOWS.match(converti):
             return _repli_mnt(chemin)
         return converti
