@@ -23,59 +23,92 @@ if "transfert_sources_liste" not in st.session_state:
 # 1. Dossiers sources à transférer (EN PREMIER)
 # =============================================================================
 st.markdown("### 1. Dossiers sources à transférer")
-st.caption("Faites **Parcourir** pour choisir un dossier, puis cliquez sur **Ajouter ce dossier** pour l'insérer dans le tableau.")
+st.caption(
+    "Cliquez sur **📂 Parcourir** pour sélectionner un dossier sur votre machine, "
+    "puis validez son ajout dans le tableau récapitulatif."
+)
 
-col_sel, col_btn = st.columns([4, 1.5], vertical_alignment="bottom")
-with col_sel:
-    nouveau_dossier = champ_dossier(
-        "Sélectionner un dossier source",
+col_parc, col_aj = st.columns([3, 1], vertical_alignment="bottom")
+
+with col_parc:
+    dossier_choisi = champ_dossier(
+        "Sélectionner un dossier",
         "transfert_nouveau_dossier",
-        placeholder="C:/Users/.../MonDossier",
     )
-with col_btn:
-    if st.button("➕ Ajouter ce dossier", use_container_width=True):
-        dossier_propre = nouveau_dossier.strip() if nouveau_dossier else ""
-        if dossier_propre:
-            if dossier_propre not in st.session_state["transfert_sources_liste"]:
-                st.session_state["transfert_sources_liste"].append(dossier_propre)
+
+with col_aj:
+    if st.button("➕ Ajouter ce dossier", use_container_width=True, type="primary"):
+        if dossier_choisi and dossier_choisi.strip():
+            chemin_net = dossier_choisi.strip()
+            if chemin_net not in st.session_state["transfert_sources_liste"]:
+                st.session_state["transfert_sources_liste"].append(chemin_net)
+                st.session_state["transfert_nouveau_dossier"] = ""
                 st.session_state.pop("transfert_plan", None)
                 st.rerun()
             else:
-                st.warning("Ce dossier est déjà dans la liste.")
+                st.warning("Ce dossier est déjà présent dans la liste.")
         else:
-            st.warning("Veuillez d'abord sélectionner ou indiquer un dossier.")
+            st.warning("Veuillez d'abord sélectionner un dossier avec « Parcourir ».")
 
-# Tableau de visualisation des dossiers sélectionnés
+# Tableau récapitulatif HTML des dossiers sélectionnés
 sources_actuelles = st.session_state["transfert_sources_liste"]
 
 if sources_actuelles:
-    st.markdown(f"##### 📋 Liste des {len(sources_actuelles)} dossier(s) sélectionné(s) :")
-    tableau_visu = [
-        {"N°": i + 1, "Dossier source": src}
-        for i, src in enumerate(sources_actuelles)
-    ]
-    st.dataframe(tableau_visu, use_container_width=True, hide_index=True)
+    lignes_html = ""
+    for idx, dossier in enumerate(sources_actuelles, start=1):
+        p = Path(dossier)
+        existe = p.is_dir()
+        badge_statut = (
+            "<span style='color: #2e7d32; font-weight: bold;'>✔ Présent</span>"
+            if existe
+            else "<span style='color: #c62828; font-weight: bold;'>✖ Introuvable</span>"
+        )
+        lignes_html += f"""
+        <tr style="border-bottom: 1px solid #e0e0e0;">
+            <td style="padding: 10px 12px; font-weight: bold; width: 50px; text-align: center;">{idx}</td>
+            <td style="padding: 10px 12px; font-family: monospace; font-size: 0.95em;">{dossier}</td>
+            <td style="padding: 10px 12px; text-align: center; width: 120px;">{badge_statut}</td>
+        </tr>
+        """
 
-    col_retrait, col_vider = st.columns([3, 1])
+    tableau_html = f"""
+    <div style="margin: 15px 0 20px 0; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+        <table style="width: 100%; border-collapse: collapse; text-align: left;">
+            <thead>
+                <tr style="background-color: #f5f5f5; border-bottom: 2px solid #ccc;">
+                    <th style="padding: 10px 12px; width: 50px; text-align: center;">#</th>
+                    <th style="padding: 10px 12px;">Dossier source</th>
+                    <th style="padding: 10px 12px; width: 120px; text-align: center;">État</th>
+                </tr>
+            </thead>
+            <tbody>
+                {lignes_html}
+            </tbody>
+        </table>
+    </div>
+    """
+    st.markdown(tableau_html, unsafe_allow_html=True)
+
+    col_retrait, col_vider = st.columns([3, 1], vertical_alignment="center")
     with col_retrait:
         dossier_a_retirer = st.selectbox(
-            "Retirer un dossier de la liste",
-            options=["— Choisir un dossier à retirer —"] + sources_actuelles,
+            "Retirer un dossier",
+            options=["— Retirer un dossier de la liste —"] + sources_actuelles,
             index=0,
             label_visibility="collapsed",
         )
-        if dossier_a_retirer != "— Choisir un dossier à retirer —":
-            if st.button(f"🗑️ Retirer de la liste"):
+        if dossier_a_retirer != "— Retirer un dossier de la liste —":
+            if st.button("🗑️ Retirer de la liste"):
                 st.session_state["transfert_sources_liste"].remove(dossier_a_retirer)
                 st.session_state.pop("transfert_plan", None)
                 st.rerun()
     with col_vider:
-        if st.button("Tout vider", use_container_width=True):
+        if st.button("🗑️ Tout vider", use_container_width=True):
             st.session_state["transfert_sources_liste"] = []
             st.session_state.pop("transfert_plan", None)
             st.rerun()
 else:
-    st.info("Aucun dossier sélectionné. Choisissez un dossier ci-dessus et cliquez sur « Ajouter ce dossier ».")
+    st.info("Aucun dossier dans la liste. Cliquez sur **📂 Parcourir** ci-dessus, puis sur **➕ Ajouter ce dossier**.")
 
 st.divider()
 
